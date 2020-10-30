@@ -28,7 +28,6 @@
 //     select all
 //     mark element & expand SELECT
 //
-//     advuilist_sourced wrapper
 //     rewrite AIM to use advuilist_sourced
 
 template <class Container, typename T = typename Container::value_type>
@@ -60,7 +59,7 @@ class advuilist
     using select_t = std::vector<ptr_t>;
 
     advuilist( Container *list, point size = { -1, -1 }, point origin = { -1, -1 },
-               std::string const &ctxtname = "default" );
+               std::string const &ctxtname = "default", bool init = true );
 
     /// sets up columns and replaces implicit column sorters (does not affect additional sorters
     /// added with addSorter())
@@ -91,6 +90,9 @@ class advuilist
     input_context *get_ctxt();
     catacurses::window *get_window();
     std::shared_ptr<ui_adaptor> get_ui();
+
+  protected:
+    void _init();
 
   private:
     /// pair of index, pointer. index is used for "none" sorting mode and is not meant to represent
@@ -162,7 +164,7 @@ class advuilist
 // *INDENT-OFF*
 template <class Container, typename T>
 advuilist<Container, T>::advuilist( Container *list, point size, point origin,
-                                    std::string const &ctxtname )
+                                    std::string const &ctxtname, bool init )
     : _size( size.x > 0 ? size.x : TERMX / 4, size.y > 0 ? size.y : TERMY / 4 ),
       _origin( origin.x >= 0 ? origin.x : TERMX / 2 - _size.x / 2,
                origin.y >= 0 ? origin.y : TERMY / 2 - _size.y / 2 ),
@@ -183,9 +185,9 @@ advuilist<Container, T>::advuilist( Container *list, point size, point origin,
       _olist( list )
 // *INDENT-ON*
 {
-    rebuild( list );
-    _initui();
-    _initctxt();
+    if( init ) {
+        _init();
+    }
 }
 
 template <class Container, typename T>
@@ -354,6 +356,14 @@ template <class Container, typename T>
 std::shared_ptr<ui_adaptor> advuilist<Container, T>::get_ui()
 {
     return _ui;
+}
+
+template <class Container, typename T>
+void advuilist<Container, T>::_init()
+{
+    rebuild( _olist );
+    _initui();
+    _initctxt();
 }
 
 template <class Container, typename T>
@@ -549,7 +559,7 @@ void advuilist<Container, T>::_group( typename groupercont_t::size_type idx )
     if( gbegin != _list.end() ) {
         _groups.emplace_back( gbegin, _list.end() );
     }
-    if( pbegin < _list.size() ) {
+    if( pbegin < _list.size() or _list.empty() ) {
         _pages.emplace_back( pbegin, _list.size() );
     }
     _cgroup = idx;
@@ -620,7 +630,7 @@ advuilist<Container, T>::_idxtopage( typename list_t::size_type idx )
 {
     // FIXME: this hack me no likey
     typename pagecont_t::size_type cpage = 0;
-    while( idx >= _pages[cpage].second ) {
+    while( _pages[cpage].first < idx and idx >= _pages[cpage].second ) {
         cpage++;
     }
     return cpage;
