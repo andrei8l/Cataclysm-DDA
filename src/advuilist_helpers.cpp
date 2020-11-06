@@ -59,6 +59,7 @@ using namespace advuilist_helpers;
 // is_ground_source, label, direction abbreviation, icon, offset
 using _sourcetuple =
     std::tuple<bool, char const *, char const *, aim_advuilist_sourced_t::icon_t, tripoint>;
+constexpr std::size_t const _tuple_label_idx = 1;
 constexpr std::size_t const _tuple_abrev_idx = 2;
 using _sourcearray = std::array<_sourcetuple, aim_nsources>;
 constexpr char const *_error = "error";
@@ -312,6 +313,23 @@ void change_columns( aim_advuilist_sourced_t *ui )
     }
 }
 
+int query_destination()
+{
+    uilist menu;
+    menu.text = _( "Select destination" );
+    int idx = 0;
+    for( _sourcetuple const &v : aimsources ) {
+        tripoint const off = std::get<tripoint>( v );
+        if( idx != ALL_IDX and std::get<bool>( v ) ) {
+            bool const valid = source_player_ground_avail( off );
+            menu.addentry( idx, valid, MENU_AUTOASSIGN, std::get<_tuple_label_idx>( v ) );
+        }
+        idx++;
+    }
+    menu.query();
+    return menu.ret;
+}
+
 } // namespace
 
 namespace advuilist_helpers
@@ -418,7 +436,7 @@ std::string iloc_entry_name( iloc_entry const &it )
 std::string iloc_entry_src( iloc_entry const &it )
 {
     Character &u = get_player_character();
-    tripoint const off = u.pos() - it.stack.front().position();
+    tripoint const off = it.stack.front().position() - u.pos();
     std::size_t idx = offset_to_slotidx( off );
     return std::get<_tuple_abrev_idx>( aimsources[idx] );
 }
@@ -736,6 +754,17 @@ void aim_transfer( aim_transaction_ui_t *ui, aim_transaction_ui_t::select_t sele
     // return to the AIM after player activities finish
     aim_add_return_activity();
 
+    // select a valid destination if otherpane is showing the ALL source
+    if( dsti == SOURCE_ALL_i ) {
+        int const newdst = query_destination();
+        if( newdst < 0 ) {
+            // transfer cancelled
+            return;
+        }
+        dst = static_cast<slotidx_t>( newdst );
+        dsti = std::get<char>( aimsources[dst] );
+    }
+
     if( dsti == SOURCE_WORN_i ) {
         player_wear( select );
     } else if( srci == SOURCE_WORN_i and dsti == SOURCE_INV_i ) {
@@ -759,8 +788,7 @@ void aim_ctxthandler( aim_transaction_ui_t *ui, std::string const &action, pane_
     // reset pane mutex on any source change
     if( action == ACTION_CYCLE_SOURCES or
         action.substr( 0, ACTION_SOURCE_PRFX_len ) == ACTION_SOURCE_PRFX ) {
-        change_columns( ui->left() );
-        change_columns( ui->right() );
+        change_columns( ui->curpane() );
         reset_mutex( ui, mutex );
         // rebuild other pane if it's set to the ALL source
         if( std::get<std::size_t>( ui->otherpane()->getSource() ) == ALL_IDX ) {
