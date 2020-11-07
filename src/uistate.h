@@ -16,7 +16,7 @@ class item;
 
 struct advuilist_save_state {
     public:
-        std::size_t slot = 0, idx = 0, sort = 0, group = 0;
+        uint64_t slot = 0, idx = 0, sort = 0, group = 0;
         char icon = 0;
         std::string filter;
 
@@ -43,7 +43,7 @@ struct advuilist_save_state {
 struct transaction_ui_save_state {
     public:
         advuilist_save_state left, right;
-        std::size_t cpane = 0;
+        uint64_t cpane = 0;
 
         template<typename JsonStream>
         void serialize( JsonStream &json, const std::string &prefix ) const {
