@@ -750,16 +750,6 @@ void advuilist<Container, T>::_group( typename groupercont_t::size_type idx )
     std::size_t cpentries = 0;
     fglabel_t const &fglabel = std::get<fglabel_t>( _groupers[idx] );
     for( auto it = _list.begin(); it != _list.end(); ++it ) {
-        if( cpentries >= lpagesize ) {
-            // avoid printing group headers on the last line of the page
-            bool const shiftone = cpentries > lpagesize;
-            typename list_t::size_type const ci = std::distance( _list.begin(),
-                                                  it ) - ( shiftone ? 1 : 0 );
-            _pages.emplace_back( pbegin, ci );
-            pbegin = ci;
-            cpentries = shiftone ? 1 : 0;
-        }
-
         if( fglabel and fglabel( *it->second ) != fglabel( *gbegin->second ) ) {
             _groups.emplace_back( gbegin, it );
             gbegin = it;
@@ -768,6 +758,16 @@ void advuilist<Container, T>::_group( typename groupercont_t::size_type idx )
         }
 
         cpentries++;
+
+        if( cpentries >= lpagesize ) {
+            // avoid printing group headers on the last line of the page
+            bool const shiftone = cpentries > lpagesize;
+            typename list_t::size_type const ci =
+                std::distance( _list.begin(), it ) - ( shiftone ? 1 : 0 );
+            _pages.emplace_back( pbegin, ci );
+            pbegin = ci;
+            cpentries = shiftone ? 1 : 0;
+        }
     }
     if( gbegin != _list.end() ) {
         _groups.emplace_back( gbegin, _list.end() );
