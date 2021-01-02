@@ -569,6 +569,10 @@ class input_context
 #endif
         }
 
+        std::string &get_category() {
+            return category;
+        }
+
 #if defined(__ANDROID__)
         virtual ~input_context() {
             input_context_stack.remove( this );
@@ -605,9 +609,6 @@ class input_context
             return registered_manual_keys;
         }
 
-        std::string &get_category() {
-            return category;
-        }
         std::vector<std::string> &get_registered_actions() {
             return registered_actions;
         }
