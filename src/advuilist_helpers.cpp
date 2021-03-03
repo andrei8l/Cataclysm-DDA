@@ -296,7 +296,7 @@ aim_container_t source_char_worn( Character *guy )
         ret.emplace_back( iloc_entry{ { item_location( *guy, &worn_item ) } } );
     }
 
-    if( guy->weapon.is_container() ) {
+    if( !guy->weapon.is_null() ) {
         ret.emplace_back( iloc_entry{ { item_location( *guy, &guy->weapon ) } } );
     }
 
