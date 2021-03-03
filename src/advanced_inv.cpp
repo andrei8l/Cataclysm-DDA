@@ -736,11 +736,6 @@ void aim_transfer( aim_transaction_ui_t *ui, aim_transaction_ui_t::select_t cons
     std::tie( src, srci ) = ui->curpane()->getSource();
     std::tie( dst, dsti ) = ui->otherpane()->getSource();
 
-    // return to the AIM after player activities finish
-    if( select.size() == 1 or !get_option<bool>( "CLOSE_ADV_INV" ) ) {
-        aim_add_return_activity();
-    }
-
     // select a valid destination if otherpane is showing the ALL source
     if( dst == ALL_IDX ) {
         int const newdst = query_destination();
@@ -750,6 +745,11 @@ void aim_transfer( aim_transaction_ui_t *ui, aim_transaction_ui_t::select_t cons
         }
         dst = static_cast<slotidx_t>( newdst );
         dsti = std::get<icon_t>( aimsources[dst] );
+    }
+
+    // return to the AIM after player activities finish
+    if( select.size() == 1 or !get_option<bool>( "CLOSE_ADV_INV" ) ) {
+        aim_add_return_activity();
     }
 
     if( dst == WORN_IDX ) {
