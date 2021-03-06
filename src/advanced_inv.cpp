@@ -170,6 +170,9 @@ std::string aim_sourcelabel( _sourcearray::size_type idx, bool veh = false )
 }
 // end hacky stuff
 
+void set_mutex( pane_mutex_t *mutex, aim_advuilist_sourced_t::slotidx_t slot,
+                aim_advuilist_sourced_t::icon_t icon, bool val );
+
 aim_container_t source_player_ground( tripoint const &offset )
 {
     return source_ground( get_avatar().pos() + offset );
@@ -209,14 +212,16 @@ aim_container_t source_player_worn()
 aim_container_t source_player_all( aim_advuilist_sourced_t *ui, pane_mutex_t *mutex )
 {
     // due to operations order in advuilist_sourced, we need to reset the (previous) location mutex
-    // this fixes a bug when switching from a ground or vehicle source to All in the same pane
-    using slotidx_t = aim_advuilist_sourced_t::slotidx_t;
-    using icon_t = aim_advuilist_sourced_t::icon_t;
-    slotidx_t slotidx = 0;
-    icon_t icon = 0;
-    std::tie( slotidx, icon ) = ui->getSource();
-    slotidx = is_vehicle( icon ) ? idxtovehidx( slotidx ) : slotidx;
-    ( *mutex )[slotidx] = false;
+    // so that it is available here when switching from a ground/vehicle source to ALL in the same
+    // pane. Only do this for regular source changes and not for pane swaps
+    if( ui->setSourceSuccess() ) {
+        using slotidx_t = aim_advuilist_sourced_t::slotidx_t;
+        using icon_t = aim_advuilist_sourced_t::icon_t;
+        slotidx_t slotidx = 0;
+        icon_t icon = 0;
+        std::tie( slotidx, icon ) = ui->getSource();
+        set_mutex( mutex, slotidx, icon, false );
+    }
 
     aim_container_t itemlist;
     pane_mutex_t::size_type idx = 0;
@@ -786,10 +791,9 @@ void aim_ctxthandler( aim_transaction_ui_t *ui, std::string const &action, pane_
         reset_mutex( ui, mutex );
         // rebuild other pane if it's set to the ALL source
         if( std::get<slotidx_t>( ui->otherpane()->getSource() ) == ALL_IDX ) {
-            // this is ugly but it's required since we're rebuilding out of line
-            mutex->at( ALL_IDX ) = false;
+            set_mutex( mutex, ALL_IDX, 0, false );
             ui->otherpane()->rebuild();
-            mutex->at( ALL_IDX ) = true;
+            set_mutex( mutex, ALL_IDX, 0, true );
             ui->otherpane()->get_ui()->invalidate_ui();
         }
 

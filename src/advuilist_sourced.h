@@ -173,8 +173,7 @@ bool advuilist_sourced<Container, T>::setSource( slotidx_t slot, icon_t icon, bo
     // if requested icon is not valid, set the first available one
     icon_t next = _cycleslot( slot, slotcont.begin()->first );
     if( next != 0 ) {
-        setSource( slot, next, fallthrough, reb );
-        return true;
+        return setSource( slot, next, fallthrough, reb );
     }
 
     if( fallthrough ) {
@@ -217,7 +216,7 @@ template <class Container, typename T>
 void advuilist_sourced<Container, T>::rebuild()
 {
     needsinit = false;
-    setSource( _cslot, 0, true, true );
+    _setsourcestat = setSource( _cslot, 0, true, true );
 }
 
 template <class Container, typename T>
@@ -294,7 +293,7 @@ template <class Container, typename T>
 void advuilist_sourced<Container, T>::loadstate( advuilist_save_state *state, bool reb )
 {
     _cslot = static_cast<slotidx_t>( state->slot );
-    setSource( _cslot, state->icon, true, false );
+    _setsourcestat = setSource( _cslot, state->icon, true, false );
 
     advuilist<Container, T>::loadstate( state, false );
 
@@ -328,9 +327,9 @@ void advuilist_sourced<Container, T>::_ctxthandler( advuilist<Container, T> * /*
             _setsourcestat = false;
         }
     } else if( action == ACTION_NEXT_SLOT ) {
-        setSource( _cslot == _sources.size() - 1 ? 0 : _cslot + 1 );
+        _setsourcestat = setSource( _cslot == _sources.size() - 1 ? 0 : _cslot + 1 );
     } else if( action == ACTION_PREV_SLOT ) {
-        setSource( _cslot == 0 ? _sources.size() - 1 : _cslot - 1 );
+        _setsourcestat = setSource( _cslot == 0 ? _sources.size() - 1 : _cslot - 1 );
     }
 
     if( _fctxt ) {
