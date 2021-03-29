@@ -56,7 +56,7 @@ class advuilist_sourced : public advuilist<Container, T>
         getsource_t getSource();
         /// returns true if last call to setSource was successful. meant to be called from the
         /// external ctxt handler added by setctxthandler()
-        bool setSourceSuccess();
+        bool setSourceSuccess() const;
 
         select_t select();
         void rebuild();
@@ -67,7 +67,7 @@ class advuilist_sourced : public advuilist<Container, T>
 
         void setctxthandler( fctxt_t const &func );
 
-        void savestate( advuilist_save_state *state );
+        void savestate( advuilist_save_state *state ) const;
         void loadstate( advuilist_save_state *state, bool reb = true );
 
     private:
@@ -136,7 +136,7 @@ template <class Container, typename T>
 void advuilist_sourced<Container, T>::addSource( slotidx_t slot, source_t const &src )
 {
     icon_t const icon = std::get<icon_t>( src );
-    auto it = _sources.find( slot );
+    auto const it = _sources.find( slot );
     if( it != _sources.end() ) {
         std::get<slotcont_t>( it->second )[icon] = src;
     } else {
@@ -154,7 +154,7 @@ bool advuilist_sourced<Container, T>::setSource( slotidx_t slot, icon_t icon, bo
 {
     slot_t &_slot = _sources[slot];
     slotcont_t &slotcont = std::get<slotcont_t>( _slot );
-    icon_t _icon = icon == 0 ? std::get<icon_t>( _slot ) : icon;
+    icon_t const _icon = icon == 0 ? std::get<icon_t>( _slot ) : icon;
 
     source_t const &src = slotcont[_icon];
     if( std::get<fsourceb_t>( src )() ) {
@@ -171,7 +171,7 @@ bool advuilist_sourced<Container, T>::setSource( slotidx_t slot, icon_t icon, bo
     }
 
     // if requested icon is not valid, set the first available one
-    icon_t next = _cycleslot( slot, slotcont.begin()->first );
+    icon_t const next = _cycleslot( slot, slotcont.begin()->first );
     if( next != 0 ) {
         return setSource( slot, next, fallthrough, reb );
     }
@@ -192,7 +192,7 @@ typename advuilist_sourced<Container, T>::getsource_t advuilist_sourced<Containe
 }
 
 template <class Container, typename T>
-bool advuilist_sourced<Container, T>::setSourceSuccess()
+bool advuilist_sourced<Container, T>::setSourceSuccess() const
 {
     return _setsourcestat;
 }
@@ -282,11 +282,11 @@ void advuilist_sourced<Container, T>::setctxthandler( fctxt_t const &func )
 }
 
 template <class Container, typename T>
-void advuilist_sourced<Container, T>::savestate( advuilist_save_state *state )
+void advuilist_sourced<Container, T>::savestate( advuilist_save_state *state ) const
 {
     advuilist<Container, T>::savestate( state );
     state->slot = static_cast<uint64_t>( _cslot );
-    state->icon = std::get<icon_t>( _sources[_cslot] );
+    state->icon = std::get<icon_t>( _sources.at( _cslot ) );
 }
 
 template <class Container, typename T>
@@ -317,7 +317,7 @@ void advuilist_sourced<Container, T>::_ctxthandler( advuilist<Container, T> * /*
     using namespace advuilist_literals;
     // where is c++20 when you need it?
     if( action.substr( 0, ACTION_SOURCE_PRFX_len ) == ACTION_SOURCE_PRFX ) {
-        slotidx_t slotidx = std::stoul( action.substr( ACTION_SOURCE_PRFX_len, action.size() ) );
+        slotidx_t const slotidx = std::stoul( action.substr( ACTION_SOURCE_PRFX_len, action.size() ) );
         _setsourcestat = setSource( slotidx );
     } else if( action == ACTION_CYCLE_SOURCES ) {
         icon_t const next = _cycleslot( _cslot );
@@ -343,7 +343,7 @@ void advuilist_sourced<Container, T>::_printmap()
     // print the name of the current source. we're doing it here instead of down in the loop
     // so that it doesn't cover the source map if it's too long
     icon_t const ci = std::get<icon_t>( _sources[_cslot] );
-    nc_color bc = c_light_gray;
+    nc_color const bc = c_light_gray;
     std::string const &label = std::get<flabel_t>( std::get<slotcont_t>( _sources[_cslot] )[ci] )();
     _cursor = { _firstcol, _headersize };
     fold_and_print( _w, _cursor, _size.x, bc, label );
@@ -356,7 +356,7 @@ void advuilist_sourced<Container, T>::_printmap()
         source_t const &src = slotcont.at( icon );
 
         // FIXME: maybe cache this?
-        typename slotcont_t::size_type nactive = _countactive( slotidx );
+        typename slotcont_t::size_type const nactive = _countactive( slotidx );
 
         std::string const color = string_format(
                                       "<color_%s>",

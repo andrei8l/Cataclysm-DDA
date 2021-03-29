@@ -46,7 +46,7 @@ class transaction_ui
 
         void show();
         void resize( point size, point origin );
-        void savestate( transaction_ui_save_state *state );
+        void savestate( transaction_ui_save_state *state ) const;
         void loadstate( transaction_ui_save_state *state, bool reb = true );
 
     private:
@@ -203,7 +203,7 @@ void transaction_ui<Container, T>::resize( point size, point origin )
 }
 
 template <class Container, typename T>
-void transaction_ui<Container, T>::savestate( transaction_ui_save_state *state )
+void transaction_ui<Container, T>::savestate( transaction_ui_save_state *state ) const
 {
     _panes[_left].savestate( &state->left );
     _panes[_right].savestate( &state->right );

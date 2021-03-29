@@ -42,8 +42,8 @@
 #include "vehicle.h"                     // for vehicle
 
 
-static const activity_id ACT_WEAR( "ACT_WEAR" );
-static const activity_id ACT_ADV_INVENTORY( "ACT_ADV_INVENTORY" );
+extern activity_id const ACT_WEAR( "ACT_WEAR" );
+extern activity_id const ACT_ADV_INVENTORY( "ACT_ADV_INVENTORY" );
 
 namespace
 {
@@ -138,7 +138,7 @@ constexpr bool is_vehicle( aim_advuilist_sourced_t::icon_t icon )
 
 bool source_player_dragged_avail()
 {
-    avatar &u = get_avatar();
+    avatar const &u = get_avatar();
     if( u.get_grab_type() == object_type::VEHICLE ) {
         return source_vehicle_avail( u.pos() + u.grab_point );
     }
@@ -287,8 +287,7 @@ void reset_mutex( aim_transaction_ui_t *ui, pane_mutex_t *mutex )
 std::string iloc_entry_src( iloc_entry const &it, int /* width */ )
 {
     tripoint const off = it.stack.front().position() - get_avatar().pos();
-    _sourcearray::size_type idx = offset_to_slotidx( off );
-    return std::get<_tuple_abrev_idx>( aimsources[idx] );
+    return std::get<_tuple_abrev_idx>( aimsources[offset_to_slotidx( off )] );
 }
 
 std::pair<point, point> aim_size( bool full_screen )
@@ -311,10 +310,10 @@ void aim_inv_idv_stats( aim_advuilist_sourced_t *ui )
     using select_t = aim_transaction_ui_t::select_t;
     select_t const peek = ui->peek();
     catacurses::window &w = *ui->get_window();
-    avatar &u = get_avatar();
+    avatar const &u = get_avatar();
 
     if( !peek.empty() ) {
-        iloc_entry &entry = *std::get<aim_advuilist_t::ptr_t>( peek.front() );
+        iloc_entry const &entry = *std::get<aim_advuilist_t::ptr_t>( peek.front() );
         double const peek_len = convert_length_cm_in( entry.stack[0]->length() );
         double const indiv_len_cap = convert_length_cm_in( u.max_single_item_length() );
         std::string const peek_len_str = colorize(
@@ -339,7 +338,7 @@ void aim_inv_idv_stats( aim_advuilist_sourced_t *ui )
 void aim_inv_stats( aim_advuilist_sourced_t *ui )
 {
     catacurses::window &w = *ui->get_window();
-    avatar &u = get_avatar();
+    avatar const &u = get_avatar();
     double const weight = convert_weight( u.weight_carried() );
     double const weight_cap = convert_weight( u.weight_capacity() );
     std::string const weight_str =
@@ -361,13 +360,12 @@ void aim_ground_veh_stats( aim_advuilist_sourced_t *ui, aim_stats_t *stats )
     icon_t srci = 0;
     std::tie( src, srci ) = ui->getSource();
     catacurses::window &w = *ui->get_window();
-    avatar &u = get_avatar();
     units::volume vol_cap = 0_liter;
     tripoint const off = slotidx_to_offset( src );
-    tripoint const loc = u.pos() + off;
+    tripoint const loc = get_avatar().pos() + off;
 
     if( srci == SOURCE_VEHICLE_i or src == DRAGGED_IDX ) {
-        cata::optional<vpart_reference> vp = veh_cargo_at( loc );
+        cata::optional<vpart_reference> const vp = veh_cargo_at( loc );
         vol_cap = vp ? vp->vehicle().max_volume( vp->part_index() ) : 0_liter;
     } else {
         vol_cap = get_map().max_volume( loc );
@@ -409,7 +407,7 @@ void aim_stats_printer( aim_advuilist_t *ui, aim_stats_t *stats )
 {
     aim_advuilist_sourced_t *_ui = reinterpret_cast<aim_advuilist_sourced_t *>( ui );
     using slotidx_t = aim_advuilist_sourced_t::slotidx_t;
-    slotidx_t src = std::get<slotidx_t>( _ui->getSource() );
+    slotidx_t const src = std::get<slotidx_t>( _ui->getSource() );
 
     if( src == INV_IDX or src == WORN_IDX ) {
         aim_inv_stats( _ui );
@@ -421,16 +419,14 @@ void aim_stats_printer( aim_advuilist_t *ui, aim_stats_t *stats )
 
 void player_take_off( aim_transaction_ui_t::select_t const &sel )
 {
-    avatar &u = get_avatar();
     for( auto const &it : sel ) {
-        u.takeoff( *it.second->stack[0] );
+        get_avatar().takeoff( *it.second->stack[0] );
     }
 }
 
 // FIXME: can I dedup this with get_selection_amount() ?
 void player_drop( aim_transaction_ui_t::select_t const &sel, tripoint const pos, bool to_vehicle )
 {
-    avatar &u = get_avatar();
     std::vector<drop_or_stash_item_info> to_drop;
     for( auto const &it : sel ) {
         if( sel.size() > 1 and it.second->stack.front()->is_favorite ) {
@@ -445,7 +441,7 @@ void player_drop( aim_transaction_ui_t::select_t const &sel, tripoint const pos,
             }
         }
     }
-    u.assign_activity( player_activity( drop_activity_actor( to_drop, pos, !to_vehicle ) ) );
+    get_avatar().assign_activity( player_activity( drop_activity_actor( to_drop, pos, !to_vehicle ) ) );
 }
 
 void get_selection_amount( aim_transaction_ui_t::select_t const &sel,
@@ -491,12 +487,11 @@ void player_pick_up( aim_transaction_ui_t::select_t const &sel, bool from_vehicl
 void player_move_items( aim_transaction_ui_t::select_t const &sel, tripoint const pos,
                         bool to_vehicle )
 {
-    avatar &u = get_avatar();
     std::vector<item_location> targets;
     std::vector<int> quantities;
     get_selection_amount( sel, &targets, &quantities, true );
 
-    u.assign_activity(
+    get_avatar().assign_activity(
         player_activity( move_items_activity_actor( targets, quantities, to_vehicle, pos ) ) );
 }
 
@@ -723,11 +718,9 @@ void add_aim_sources( aim_advuilist_sourced_t *myadvuilist, pane_mutex_t *mutex 
 
 void aim_add_return_activity()
 {
-    // return to the AIM after player activities finish
-    avatar &u = get_avatar();
     player_activity act_return( ACT_ADV_INVENTORY );
     act_return.auto_resume = true;
-    u.assign_activity( act_return );
+    get_avatar().assign_activity( act_return );
 }
 
 void aim_transfer( aim_transaction_ui_t *ui, aim_transaction_ui_t::select_t const &select )
@@ -812,7 +805,7 @@ void aim_ctxthandler( aim_transaction_ui_t *ui, std::string const &action, pane_
         iloc_entry &entry = *std::get<aim_advuilist_t::ptr_t>( peek.front() );
 
         if( action == ACTION_EXAMINE ) {
-            slotidx_t src = std::get<slotidx_t>( ui->curpane()->getSource() );
+            slotidx_t const src = std::get<slotidx_t>( ui->curpane()->getSource() );
             if( src == INV_IDX or src == WORN_IDX ) {
                 aim_add_return_activity();
                 ui->pushevent( aim_transaction_ui_t::event::QUIT );
@@ -861,7 +854,7 @@ void create_advanced_inv( bool resume )
     static bool full_screen{ get_option<bool>( "AIM_WIDTH" ) };
     bool const _fs = get_option<bool>( "AIM_WIDTH" );
     if( !mytrui ) {
-        std::pair<point, point> size = aim_size( full_screen );
+        std::pair<point, point> const size = aim_size( full_screen );
 
         mytrui = std::make_unique<mytrui_t>( aimlayout, size.first, size.second,
                                              "ADVANCED_INVENTORY", point{3, 1} );
@@ -882,7 +875,7 @@ void create_advanced_inv( bool resume )
 
     } else if( full_screen != _fs ) {
         full_screen = _fs;
-        std::pair<point, point> size = aim_size( full_screen );
+        std::pair<point, point> const size = aim_size( full_screen );
         mytrui->resize( size.first, size.second );
 
     }

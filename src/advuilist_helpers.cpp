@@ -68,7 +68,7 @@ void _get_stacks( item *elem, iloc_stack_t *stacks, stack_cache_t *cache,
                   filoc_t const &iloc_helper )
 {
     itype_id const id = elem->typeId();
-    auto iter = cache->find( id );
+    auto const iter = cache->find( id );
     bool got_stacked = false;
     if( iter != cache->end() ) {
         for( auto const &idx : iter->second ) {
@@ -87,7 +87,7 @@ void _get_stacks( item *elem, iloc_stack_t *stacks, stack_cache_t *cache,
 
 void _append_stacks( Character *guy, item *i, aim_container_t *ret )
 {
-    aim_container_t temp =
+    aim_container_t const temp =
         get_stacks( i->contents.all_items_top( item_pocket::pocket_type::CONTAINER ),
     [guy]( item * it ) {
         return item_location( *guy, it );

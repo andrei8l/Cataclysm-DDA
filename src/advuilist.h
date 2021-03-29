@@ -117,7 +117,7 @@ class advuilist
         std::shared_ptr<ui_adaptor> get_ui();
         std::pair<point, point> get_size();
 
-        void savestate( advuilist_save_state *state );
+        void savestate( advuilist_save_state *state ) const;
         void loadstate( advuilist_save_state *state, bool reb = true );
 
     private:
@@ -524,7 +524,7 @@ std::pair<point, point> advuilist<Container, T>::get_size()
 }
 
 template <class Container, typename T>
-void advuilist<Container, T>::savestate( advuilist_save_state *state )
+void advuilist<Container, T>::savestate( advuilist_save_state *state ) const
 {
     state->idx = static_cast<uint64_t>( _cidx );
     state->sort = static_cast<uint64_t>( _csort );
@@ -713,7 +713,7 @@ void advuilist<Container, T>::_printfooters()
 {
     using namespace advuilist_literals;
     // filter
-    std::string fprefix = string_format( _( "[%s] Filter" ), _ctxt.get_desc( ACTION_FILTER ) );
+    std::string const fprefix = string_format( _( "[%s] Filter" ), _ctxt.get_desc( ACTION_FILTER ) );
     if( !_filter.empty() ) {
         mvwprintw( _w, { _firstcol, _size.y - 1 }, "< %s: %s >", fprefix, _filter );
     } else {
@@ -857,7 +857,7 @@ typename advuilist<Container, T>::count_t advuilist<Container, T>::_querypartial
         string_format( _( "How many do you want to select?  [Max %d] (0 to cancel)" ), max ) );
     spopup.width( 20 );
     spopup.only_digits( true );
-    count_t amount = spopup.query_int64_t();
+    count_t const amount = spopup.query_int64_t();
 
     return spopup.canceled() ? 0 : std::min( max, amount );
 }
