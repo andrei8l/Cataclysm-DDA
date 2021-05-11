@@ -4,7 +4,6 @@
 #include <array>     // for array
 #include <memory>    // for unique_ptr
 #include <string>    // for operator==, basic_string, string
-#include <tuple>     // for tie
 #include <utility>   // for move
 #include <vector>    // for vector
 
@@ -67,34 +66,35 @@ constexpr char const *TOGGLE_FAVORITE = "TOGGLE_FAVORITE";
 #pragma clang diagnostic ignored "-Wmissing-braces"
 #endif
 
-// Cataclysm: Hacky Stuff Ahead
-// this is actually an attempt to make the code more readable and reduce duplication
-// is_ground_source, label, direction abbreviation, icon, offset
-using _sourcetuple =
-    std::tuple<bool, char const *, char const *, aim_advuilist_sourced_t::icon_t, tripoint>;
-constexpr std::size_t const _tuple_label_idx = 1;
-constexpr std::size_t const _tuple_abrev_idx = 2;
-using _sourcearray = std::array<_sourcetuple, aim_nsources>;
 constexpr char const *_error = "error";
+struct _aim_source_t {
+    bool is_ground_source = false;
+    char const *label = _error;
+    char const *dir_abv = _error;
+    aim_advuilist_sourced_t::icon_t icon = 0;
+    tripoint offset;
+
+};
+using _sourcearray = std::array<_aim_source_t, aim_nsources>;
 constexpr _sourcearray const aimsources = {
-    _sourcetuple{ false, "Container", _error, 'C', tripoint_zero },
-    _sourcetuple{ false, "Grabbed Vehicle", _error, SOURCE_DRAGGED_i, tripoint_zero },
-    _sourcetuple{ false, _error, _error, 0, tripoint_zero },
-    _sourcetuple{ true, "North West", "NW", '7', tripoint_north_west },
-    _sourcetuple{ true, "North", "N", '8', tripoint_north },
-    _sourcetuple{ true, "North East", "NE", '9', tripoint_north_east },
-    _sourcetuple{ false, _error, _error, 0, tripoint_zero },
-    _sourcetuple{ false, "Inventory", _error, 'I', tripoint_zero },
-    _sourcetuple{ false, _error, _error, 0, tripoint_zero },
-    _sourcetuple{ true, "West", "W", '4', tripoint_west },
-    _sourcetuple{ true, "Directly below you", "DN", '5', tripoint_zero },
-    _sourcetuple{ true, "East", "E", '6', tripoint_east },
-    _sourcetuple{ false, "Surrounding area", _error, 'A', tripoint_zero },
-    _sourcetuple{ false, "Worn Items", _error, 'W', tripoint_zero },
-    _sourcetuple{ false, _error, _error, 0, tripoint_zero },
-    _sourcetuple{ true, "South West", "SW", '1', tripoint_south_west },
-    _sourcetuple{ true, "South", "S", '2', tripoint_south },
-    _sourcetuple{ true, "South East", "SE", '3', tripoint_south_east },
+    _aim_source_t{ false, "Container", _error, 'C', tripoint_zero },
+    _aim_source_t{ false, "Grabbed Vehicle", _error, SOURCE_DRAGGED_i, tripoint_zero },
+    _aim_source_t{ false, _error, _error, 0, tripoint_zero },
+    _aim_source_t{ true, "North West", "NW", '7', tripoint_north_west },
+    _aim_source_t{ true, "North", "N", '8', tripoint_north },
+    _aim_source_t{ true, "North East", "NE", '9', tripoint_north_east },
+    _aim_source_t{ false, _error, _error, 0, tripoint_zero },
+    _aim_source_t{ false, "Inventory", _error, 'I', tripoint_zero },
+    _aim_source_t{ false, _error, _error, 0, tripoint_zero },
+    _aim_source_t{ true, "West", "W", '4', tripoint_west },
+    _aim_source_t{ true, "Directly below you", "DN", '5', tripoint_zero },
+    _aim_source_t{ true, "East", "E", '6', tripoint_east },
+    _aim_source_t{ false, "Surrounding area", _error, 'A', tripoint_zero },
+    _aim_source_t{ false, "Worn Items", _error, 'W', tripoint_zero },
+    _aim_source_t{ false, _error, _error, 0, tripoint_zero },
+    _aim_source_t{ true, "South West", "SW", '1', tripoint_south_west },
+    _aim_source_t{ true, "South", "S", '2', tripoint_south },
+    _aim_source_t{ true, "South East", "SE", '3', tripoint_south_east },
 };
 
 #ifdef __clang__
@@ -113,15 +113,15 @@ tripoint slotidx_to_offset( aim_advuilist_sourced_t::slotidx_t idx )
         return get_avatar().grab_point;
     }
 
-    return std::get<tripoint>( aimsources[idx] );
+    return aimsources[idx].offset;
 }
 
 // this could be constexpr in C++20
 _sourcearray::size_type offset_to_slotidx( tripoint const &off )
 {
     _sourcearray::const_iterator const it =
-    std::find_if( aimsources.begin(), aimsources.end(), [&]( _sourcetuple const & v ) {
-        return std::get<bool>( v ) and std::get<tripoint>( v ) == off;
+    std::find_if( aimsources.begin(), aimsources.end(), [&]( _aim_source_t const & v ) {
+        return v.is_ground_source and v.offset == off;
     } );
     return std::distance( aimsources.begin(), it );
 }
@@ -148,8 +148,8 @@ bool source_player_dragged_avail()
 
 std::string aim_sourcelabel( _sourcearray::size_type idx, bool veh = false )
 {
-    _sourcetuple const &src = aimsources[idx];
-    std::string const &srcname = std::get<_tuple_label_idx>( src );
+    _aim_source_t const &src = aimsources[idx];
+    std::string const &srcname = src.label;
 
     tripoint const pos = get_avatar().pos() + slotidx_to_offset( idx );
     std::string prefix = srcname;
@@ -161,7 +161,7 @@ std::string aim_sourcelabel( _sourcearray::size_type idx, bool veh = false )
         prefix = vp->vehicle().name;
         label = vp->get_label().value_or( vp->info().name() );
     } else {
-        if( std::get<bool>( src ) ) {
+        if( src.is_ground_source ) {
             label = get_map().name( pos );
         }
     }
@@ -215,20 +215,16 @@ aim_container_t source_player_all( aim_advuilist_sourced_t *ui, pane_mutex_t *mu
     // so that it is available here when switching from a ground/vehicle source to ALL in the same
     // pane. Only do this for regular source changes and not for pane swaps
     if( ui->setSourceSuccess() ) {
-        using slotidx_t = aim_advuilist_sourced_t::slotidx_t;
-        using icon_t = aim_advuilist_sourced_t::icon_t;
-        slotidx_t slotidx = 0;
-        icon_t icon = 0;
-        std::tie( slotidx, icon ) = ui->getSource();
-        set_mutex( mutex, slotidx, icon, false );
+        using getsource_t = aim_advuilist_sourced_t::getsource_t;
+        getsource_t const src = ui->getSource();
+        set_mutex( mutex, src.slotidx, src.icon, false );
     }
 
     aim_container_t itemlist;
     pane_mutex_t::size_type idx = 0;
     for( auto const &v : aimsources ) {
-        // only consider entries with is_ground_source = true and not mutex'ed
-        if( std::get<bool>( v ) ) {
-            tripoint const off = std::get<tripoint>( v );
+        if( v.is_ground_source ) {
+            tripoint const off = v.offset;
             if( source_player_ground_avail( off ) and !mutex->at( idx ) ) {
                 aim_container_t const &stacks = source_player_ground( off );
                 itemlist.insert( itemlist.end(), std::make_move_iterator( stacks.begin() ),
@@ -270,24 +266,19 @@ void reset_mutex( pane_mutex_t *mutex )
 
 void reset_mutex( aim_transaction_ui_t *ui, pane_mutex_t *mutex )
 {
-    using slotidx_t = aim_advuilist_sourced_t::slotidx_t;
-    using icon_t = aim_advuilist_sourced_t::icon_t;
-    slotidx_t lsrc = 0;
-    slotidx_t rsrc = 0;
-    icon_t licon = 0;
-    icon_t ricon = 0;
+    using getsource_t = aim_advuilist_sourced_t::getsource_t;
+    getsource_t const lsrc = ui->left()->getSource();
+    getsource_t const rsrc = ui->right()->getSource();
 
-    std::tie( lsrc, licon ) = ui->left()->getSource();
-    std::tie( rsrc, ricon ) = ui->right()->getSource();
     reset_mutex( mutex );
-    set_mutex( mutex, lsrc, licon, true );
-    set_mutex( mutex, rsrc, ricon, true );
+    set_mutex( mutex, lsrc.slotidx, lsrc.icon, true );
+    set_mutex( mutex, rsrc.slotidx, rsrc.icon, true );
 }
 
 std::string iloc_entry_src( iloc_entry const &it, int /* width */ )
 {
     tripoint const off = it.stack.front().position() - get_avatar().pos();
-    return std::get<_tuple_abrev_idx>( aimsources[offset_to_slotidx( off )] );
+    return aimsources[offset_to_slotidx( off )].dir_abv;
 }
 
 std::pair<point, point> aim_size( bool full_screen )
@@ -313,7 +304,7 @@ void aim_inv_idv_stats( aim_advuilist_sourced_t *ui )
     avatar const &u = get_avatar();
 
     if( !peek.empty() ) {
-        iloc_entry const &entry = *std::get<aim_advuilist_t::ptr_t>( peek.front() );
+        iloc_entry const &entry = *peek.front().ptr;
         double const peek_len = convert_length_cm_in( entry.stack[0]->length() );
         double const indiv_len_cap = convert_length_cm_in( u.max_single_item_length() );
         std::string const peek_len_str = colorize(
@@ -354,25 +345,22 @@ void aim_inv_stats( aim_advuilist_sourced_t *ui )
 void aim_ground_veh_stats( aim_advuilist_sourced_t *ui, aim_stats_t *stats )
 {
     using namespace advuilist_helpers;
-    using slotidx_t = aim_advuilist_sourced_t::slotidx_t;
-    using icon_t = aim_advuilist_sourced_t::icon_t;
-    slotidx_t src = 0;
-    icon_t srci = 0;
-    std::tie( src, srci ) = ui->getSource();
+    using getsource_t = aim_advuilist_sourced_t::getsource_t;
+    getsource_t const src = ui->getSource();
     catacurses::window &w = *ui->get_window();
     units::volume vol_cap = 0_liter;
-    tripoint const off = slotidx_to_offset( src );
+    tripoint const off = slotidx_to_offset( src.slotidx );
     tripoint const loc = get_avatar().pos() + off;
 
-    if( srci == SOURCE_VEHICLE_i or src == DRAGGED_IDX ) {
+    if( src.icon == SOURCE_VEHICLE_i or src.slotidx == DRAGGED_IDX ) {
         cata::optional<vpart_reference> const vp = veh_cargo_at( loc );
         vol_cap = vp ? vp->vehicle().max_volume( vp->part_index() ) : 0_liter;
     } else {
         vol_cap = get_map().max_volume( loc );
     }
 
-    double const weight = convert_weight( stats->first );
-    std::string const volume = format_volume( stats->second );
+    double const weight = convert_weight( stats->mass );
+    std::string const volume = format_volume( stats->volume );
     std::string const volume_cap = format_volume( vol_cap );
 
     right_print( w, 1, 2, c_white,
@@ -407,7 +395,7 @@ void aim_stats_printer( aim_advuilist_t *ui, aim_stats_t *stats )
 {
     aim_advuilist_sourced_t *_ui = reinterpret_cast<aim_advuilist_sourced_t *>( ui );
     using slotidx_t = aim_advuilist_sourced_t::slotidx_t;
-    slotidx_t const src = std::get<slotidx_t>( _ui->getSource() );
+    slotidx_t const src = _ui->getSource().slotidx;
 
     if( src == INV_IDX or src == WORN_IDX ) {
         aim_inv_stats( _ui );
@@ -420,7 +408,7 @@ void aim_stats_printer( aim_advuilist_t *ui, aim_stats_t *stats )
 void player_take_off( aim_transaction_ui_t::select_t const &sel )
 {
     for( auto const &it : sel ) {
-        get_avatar().takeoff( *it.second->stack[0] );
+        get_avatar().takeoff( *it.ptr->stack[0] );
     }
 }
 
@@ -429,14 +417,14 @@ void player_drop( aim_transaction_ui_t::select_t const &sel, tripoint const pos,
 {
     std::vector<drop_or_stash_item_info> to_drop;
     for( auto const &it : sel ) {
-        if( sel.size() > 1 and it.second->stack.front()->is_favorite ) {
+        if( sel.size() > 1 and it.ptr->stack.front()->is_favorite ) {
             continue;
         }
-        aim_advuilist_t::count_t count = it.first;
-        if( it.second->stack.front()->count_by_charges() ) {
-            to_drop.emplace_back( it.second->stack.front(), count );
+        aim_advuilist_t::count_t count = it.count;
+        if( it.ptr->stack.front()->count_by_charges() ) {
+            to_drop.emplace_back( it.ptr->stack.front(), count );
         } else {
-            for( auto v = it.second->stack.begin(); v != it.second->stack.begin() + count; ++v ) {
+            for( auto v = it.ptr->stack.begin(); v != it.ptr->stack.begin() + count; ++v ) {
                 to_drop.emplace_back( *v, count );
             }
         }
@@ -450,16 +438,16 @@ void get_selection_amount( aim_transaction_ui_t::select_t const &sel,
 {
     bool const _ifav = sel.size() > 1 and ignorefav;
     for( auto const &it : sel ) {
-        if( _ifav and it.second->stack.front()->is_favorite ) {
+        if( _ifav and it.ptr->stack.front()->is_favorite ) {
             continue;
         }
-        if( it.second->stack.front()->count_by_charges() ) {
-            targets->emplace_back( *it.second->stack.begin() );
-            quantities->emplace_back( it.first );
+        if( it.ptr->stack.front()->count_by_charges() ) {
+            targets->emplace_back( *it.ptr->stack.begin() );
+            quantities->emplace_back( it.count );
         } else {
-            targets->insert( targets->end(), it.second->stack.begin(),
-                             it.second->stack.begin() + it.first );
-            quantities->insert( quantities->end(), it.first, 0 );
+            targets->insert( targets->end(), it.ptr->stack.begin(),
+                             it.ptr->stack.begin() + it.count );
+            quantities->insert( quantities->end(), it.count, 0 );
         }
     }
 }
@@ -497,8 +485,7 @@ void player_move_items( aim_transaction_ui_t::select_t const &sel, tripoint cons
 
 void change_columns( aim_advuilist_sourced_t *ui )
 {
-    using slotidx_t = aim_advuilist_sourced_t::slotidx_t;
-    if( std::get<slotidx_t>( ui->getSource() ) == ALL_IDX ) {
+    if( ui->getSource().slotidx == ALL_IDX ) {
         aim_all_columns( ui ) ;
     } else {
         aim_default_columns( ui );
@@ -510,11 +497,11 @@ int query_destination()
     uilist menu;
     menu.text = _( "Select destination" );
     int idx = 0;
-    for( _sourcetuple const &v : aimsources ) {
-        tripoint const off = std::get<tripoint>( v );
-        if( idx != ALL_IDX and std::get<bool>( v ) ) {
+    for( _aim_source_t const &v : aimsources ) {
+        tripoint const off = v.offset;
+        if( idx != ALL_IDX and v.is_ground_source ) {
             bool const valid = source_player_ground_avail( off );
-            menu.addentry( idx, valid, MENU_AUTOASSIGN, std::get<_tuple_label_idx>( v ) );
+            menu.addentry( idx, valid, MENU_AUTOASSIGN, v.label );
         }
         idx++;
     }
@@ -527,29 +514,23 @@ void swap_panes_maybe( aim_transaction_ui_t *ui, std::string const &action, pane
     if( !ui->curpane()->setSourceSuccess() ) {
         using namespace advuilist_literals;
         using slotidx_t = aim_advuilist_sourced_t::slotidx_t;
-        using icon_t = aim_advuilist_sourced_t::icon_t;
-
-        slotidx_t cslot = 0;
-        slotidx_t oslot = 0;
-        icon_t cicon = 0;
-        icon_t oicon = 0;
-        std::tie( cslot, cicon ) = ui->curpane()->getSource();
-        std::tie( oslot, oicon ) = ui->otherpane()->getSource();
-        // requested slot
-        slotidx_t const rslot =
+        using getsource_t = aim_advuilist_sourced_t::getsource_t;
+        getsource_t const csrc = ui->curpane()->getSource();
+        getsource_t const osrc = ui->otherpane()->getSource();
+        slotidx_t const req_slot =
             action == ACTION_CYCLE_SOURCES
-            ? cslot
+            ? csrc.slotidx
             : std::stoul( action.substr( ACTION_SOURCE_PRFX_len, action.size() ) );
         // swap panes if the requested source is already selected in the other pane
         // also swap panes if the current source is re-selected since people have grown accustomed
         // to this behaviour (see discussion in #45900)
-        if( rslot == oslot or rslot == cslot ) {
-            set_mutex( mutex, cslot, cicon, false );
-            ui->otherpane()->setSource( cslot, cicon );
-            set_mutex( mutex, cslot, cicon, true );
-            set_mutex( mutex, oslot, oicon, false );
-            ui->curpane()->setSource( oslot, oicon );
-            set_mutex( mutex, oslot, oicon, true );
+        if( req_slot == osrc.slotidx or req_slot == csrc.slotidx ) {
+            set_mutex( mutex, csrc.slotidx, csrc.icon, false );
+            ui->otherpane()->setSource( csrc.slotidx, csrc.icon );
+            set_mutex( mutex, csrc.slotidx, csrc.icon, true );
+            set_mutex( mutex, osrc.slotidx, osrc.icon, false );
+            ui->curpane()->setSource( osrc.slotidx, osrc.icon );
+            set_mutex( mutex, osrc.slotidx, osrc.icon, true );
             change_columns( ui->otherpane() );
             ui->otherpane()->get_ui()->invalidate_ui();
         }
@@ -558,19 +539,17 @@ void swap_panes_maybe( aim_transaction_ui_t *ui, std::string const &action, pane
 
 void aim_rebuild( aim_transaction_ui_t *ui, pane_mutex_t *mutex )
 {
-    aim_advuilist_sourced_t::slotidx_t lidx = 0;
-    aim_advuilist_sourced_t::slotidx_t ridx = 0;
-    aim_advuilist_sourced_t::icon_t licon = 0;
-    aim_advuilist_sourced_t::icon_t ricon = 0;
-    std::tie( lidx, licon ) = ui->left()->getSource();
-    std::tie( ridx, ricon ) = ui->right()->getSource();
-    set_mutex( mutex, lidx, licon, false );
+    using getsource_t = aim_advuilist_sourced_t::getsource_t;
+    getsource_t const lsrc = ui->left()->getSource();
+    getsource_t const rsrc = ui->right()->getSource();;
+    set_mutex( mutex, lsrc.slotidx, lsrc.icon, false );
     ui->left()->rebuild();
-    set_mutex( mutex, lidx, licon, true );
+    set_mutex( mutex, lsrc.slotidx, lsrc.icon, true );
     // make sure our panes don't use the same source even if they end up using the same slot
-    set_mutex( mutex, ridx, ricon, lidx == ridx and licon == ricon );
+    set_mutex( mutex, rsrc.slotidx, rsrc.icon, lsrc.slotidx == rsrc.slotidx and
+               lsrc.icon == rsrc.icon );
     ui->right()->rebuild();
-    set_mutex( mutex, ridx, ricon, true );
+    set_mutex( mutex, rsrc.slotidx, rsrc.icon, true );
 }
 
 void setup_for_aim( aim_advuilist_t *myadvuilist, aim_stats_t *stats )
@@ -626,7 +605,6 @@ void add_aim_sources( aim_advuilist_sourced_t *myadvuilist, pane_mutex_t *mutex 
     using fsource_t = aim_advuilist_sourced_t::fsource_t;
     using fsourceb_t = aim_advuilist_sourced_t::fsourceb_t;
     using flabel_t = aim_advuilist_sourced_t::flabel_t;
-    using icon_t = aim_advuilist_sourced_t::icon_t;
 
     fsource_t source_dummy = []() {
         return aim_container_t();
@@ -642,12 +620,8 @@ void add_aim_sources( aim_advuilist_sourced_t *myadvuilist, pane_mutex_t *mutex 
         fsource_t _fsv;
         fsourceb_t _fsb;
         fsourceb_t _fsvb;
-        char const *str = nullptr;
-        icon_t icon = 0;
-        tripoint off;
-        std::tie( std::ignore, str, std::ignore, icon, off ) = src;
 
-        if( icon != 0 ) {
+        if( src.icon != 0 ) {
             switch( idx ) {
                 case CONT_IDX: {
                     _fs = source_dummy;
@@ -686,17 +660,17 @@ void add_aim_sources( aim_advuilist_sourced_t *myadvuilist, pane_mutex_t *mutex 
                 }
                 default: {
                     _fs = [ = ]() {
-                        return source_player_ground( off );
+                        return source_player_ground( src.offset );
                     };
                     _fsb = [ = ]() {
-                        return !mutex->at( idx ) and source_player_ground_avail( off );
+                        return !mutex->at( idx ) and source_player_ground_avail( src.offset );
                     };
                     _fsv = [ = ]() {
-                        return source_player_vehicle( off );
+                        return source_player_vehicle( src.offset );
                     };
                     _fsvb = [ = ]() {
                         return !mutex->at( idxtovehidx( idx ) ) and
-                               source_player_vehicle_avail( off );
+                               source_player_vehicle_avail( src.offset );
                     };
                     break;
                 }
@@ -704,7 +678,7 @@ void add_aim_sources( aim_advuilist_sourced_t *myadvuilist, pane_mutex_t *mutex 
             flabel_t const label = [ = ]() {
                 return aim_sourcelabel( idx );
             };
-            myadvuilist->addSource( idx, source_t{ label, icon, _fs, _fsb } );
+            myadvuilist->addSource( idx, source_t{ label, src.icon, _fs, _fsb } );
             if( _fsv ) {
                 flabel_t const vlabel = [ = ]() {
                     return aim_sourcelabel( idx, true );
@@ -726,23 +700,19 @@ void aim_add_return_activity()
 void aim_transfer( aim_transaction_ui_t *ui, aim_transaction_ui_t::select_t const &select )
 {
     using slotidx_t = aim_advuilist_sourced_t::slotidx_t;
-    using icon_t = aim_advuilist_sourced_t::icon_t;
-    slotidx_t src = 0;
-    slotidx_t dst = 0;
-    icon_t srci = 0;
-    icon_t dsti = 0;
-    std::tie( src, srci ) = ui->curpane()->getSource();
-    std::tie( dst, dsti ) = ui->otherpane()->getSource();
+    using getsource_t = aim_advuilist_sourced_t::getsource_t;
+    getsource_t const csrc = ui->curpane()->getSource();
+    getsource_t dst = ui->otherpane()->getSource();
 
     // select a valid destination if otherpane is showing the ALL source
-    if( dst == ALL_IDX ) {
+    if( dst.slotidx == ALL_IDX ) {
         int const newdst = query_destination();
         if( newdst < 0 ) {
             // transfer cancelled
             return;
         }
-        dst = static_cast<slotidx_t>( newdst );
-        dsti = std::get<icon_t>( aimsources[dst] );
+        dst.slotidx = static_cast<slotidx_t>( newdst );
+        dst.icon = aimsources[dst.slotidx].icon;
     }
 
     // return to the AIM after player activities finish
@@ -750,16 +720,16 @@ void aim_transfer( aim_transaction_ui_t *ui, aim_transaction_ui_t::select_t cons
         aim_add_return_activity();
     }
 
-    if( dst == WORN_IDX ) {
+    if( dst.slotidx == WORN_IDX ) {
         player_wear( select );
-    } else if( src == WORN_IDX and dst == INV_IDX ) {
+    } else if( csrc.slotidx == WORN_IDX and dst.slotidx == INV_IDX ) {
         player_take_off( select );
-    } else if( src == WORN_IDX or src == INV_IDX ) {
-        player_drop( select, slotidx_to_offset( dst ), is_vehicle( dsti ) );
-    } else if( dst == INV_IDX ) {
-        player_pick_up( select, is_vehicle( srci ) );
+    } else if( csrc.slotidx == WORN_IDX or csrc.slotidx == INV_IDX ) {
+        player_drop( select, slotidx_to_offset( dst.slotidx ), is_vehicle( dst.icon ) );
+    } else if( dst.slotidx == INV_IDX ) {
+        player_pick_up( select, is_vehicle( csrc.icon ) );
     } else {
-        player_move_items( select, slotidx_to_offset( dst ), is_vehicle( dsti ) );
+        player_move_items( select, slotidx_to_offset( dst.slotidx ), is_vehicle( dst.icon ) );
     }
 
     // close the transaction_ui so that player activities can run
@@ -783,7 +753,7 @@ void aim_ctxthandler( aim_transaction_ui_t *ui, std::string const &action, pane_
         change_columns( ui->curpane() );
         reset_mutex( ui, mutex );
         // rebuild other pane if it's set to the ALL source
-        if( std::get<slotidx_t>( ui->otherpane()->getSource() ) == ALL_IDX ) {
+        if( ui->otherpane()->getSource().slotidx == ALL_IDX ) {
             set_mutex( mutex, ALL_IDX, 0, false );
             ui->otherpane()->rebuild();
             set_mutex( mutex, ALL_IDX, 0, true );
@@ -802,10 +772,10 @@ void aim_ctxthandler( aim_transaction_ui_t *ui, std::string const &action, pane_
         ui->otherpane()->get_ui()->invalidate_ui();
 
     } else if( !peek.empty() ) {
-        iloc_entry &entry = *std::get<aim_advuilist_t::ptr_t>( peek.front() );
+        iloc_entry &entry = *peek.front().ptr;
 
         if( action == ACTION_EXAMINE ) {
-            slotidx_t const src = std::get<slotidx_t>( ui->curpane()->getSource() );
+            slotidx_t const src = ui->curpane()->getSource().slotidx;
             if( src == INV_IDX or src == WORN_IDX ) {
                 aim_add_return_activity();
                 ui->pushevent( aim_transaction_ui_t::event::QUIT );

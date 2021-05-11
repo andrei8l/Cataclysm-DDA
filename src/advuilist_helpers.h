@@ -3,7 +3,6 @@
 
 #include <functional> // for function
 #include <string>     // for string, allocator
-#include <utility>    // for pair
 #include <vector>     // for vector
 
 #include "advuilist.h"         // for advuilist
@@ -39,7 +38,10 @@ using aim_container_t = std::vector<iloc_entry>;
 using aim_advuilist_t = advuilist<aim_container_t, iloc_entry>;
 using aim_advuilist_sourced_t = advuilist_sourced<aim_container_t, iloc_entry>;
 using aim_transaction_ui_t = transaction_ui<aim_container_t, iloc_entry>;
-using aim_stats_t = std::pair<units::mass, units::volume>;
+struct aim_stats_t {
+    units::mass mass = 0_kilogram;
+    units::volume volume = 0_liter;
+};
 
 using filoc_t = std::function<item_location( item * )>;
 template <class Iterable>

@@ -9,7 +9,7 @@
 #include <set>           // for set
 #include <string>        // for allocator, basic_string, string
 #include <unordered_map> // for unordered_map, unordered_map<>::i...
-#include <utility>       // for move, get, pair
+#include <utility>       // for move
 #include <vector>        // for vector
 
 #include "auto_pickup.h"                 // for get_auto_pickup, player_sett...
@@ -230,12 +230,12 @@ bool iloc_entry_filter( iloc_entry const &it, std::string const &filter )
 void iloc_entry_stats( aim_stats_t *stats, bool first, iloc_entry const &it )
 {
     if( first ) {
-        stats->first = 0_kilogram;
-        stats->second = 0_liter;
+        stats->mass = 0_kilogram;
+        stats->volume = 0_liter;
     }
     for( auto const &v : it.stack ) {
-        stats->first += v->weight();
-        stats->second += v->volume();
+        stats->mass += v->weight();
+        stats->volume += v->volume();
     }
 }
 

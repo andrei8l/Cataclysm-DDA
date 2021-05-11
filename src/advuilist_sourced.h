@@ -7,7 +7,6 @@
 #include <map>         // for map
 #include <memory>      // for shared_ptr, __shared_ptr_access
 #include <string>      // for string, basic_string, operator==
-#include <tuple>       // for tuple
 #include <type_traits> // for declval
 #include <utility>     // for pair
 
@@ -33,10 +32,17 @@ class advuilist_sourced : public advuilist<Container, T>
         using fdraw_t = typename advuilist<Container, T>::fdraw_t;
         using icon_t = char;
         using slotidx_t = std::size_t;
-        using getsource_t = std::pair<slotidx_t, icon_t>;
+        struct getsource_t {
+            slotidx_t slotidx = 0;
+            icon_t icon = 0;
+        };
         using flabel_t = std::function<std::string()>;
-        // label, icon, source function, availability function. icon must be unique and not zero
-        using source_t = std::tuple<flabel_t, icon_t, fsource_t, fsourceb_t>;
+        struct source_t {
+            flabel_t label_printer;
+            icon_t icon = 0;
+            fsource_t source_func;
+            fsourceb_t source_avail_func;
+        };
         using fctxt_t = typename advuilist<Container, T>::fctxt_t;
         using select_t = typename advuilist<Container, T>::select_t;
 
@@ -72,8 +78,10 @@ class advuilist_sourced : public advuilist<Container, T>
 
     private:
         using slotcont_t = std::map<icon_t, source_t>;
-        /// active source for this slot, container of sources bound to this slot
-        using slot_t = std::pair<icon_t, slotcont_t>;
+        struct slot_t {
+            icon_t cur_icon = 0;
+            slotcont_t slotcont;
+        };
         /// key is slot index
         using srccont_t = std::map<slotidx_t, slot_t>;
 
@@ -135,14 +143,14 @@ advuilist_sourced<Container, T>::advuilist_sourced( point const &srclayout, poin
 template <class Container, typename T>
 void advuilist_sourced<Container, T>::addSource( slotidx_t slot, source_t const &src )
 {
-    icon_t const icon = std::get<icon_t>( src );
+    icon_t const icon = src.icon;
     auto const it = _sources.find( slot );
     if( it != _sources.end() ) {
-        std::get<slotcont_t>( it->second )[icon] = src;
+        it->second.slotcont[icon] = src;
     } else {
         // FIXME: figure out emplace for this
-        _sources[slot] = slot_t( icon, slotcont_t() );
-        std::get<slotcont_t>( _sources[slot] )[icon] = src;
+        _sources[slot] = slot_t{ icon, slotcont_t() };
+        _sources[slot].slotcont[icon] = src;
 
         _registerSrc( slot );
     }
@@ -153,14 +161,14 @@ bool advuilist_sourced<Container, T>::setSource( slotidx_t slot, icon_t icon, bo
         bool reb )
 {
     slot_t &_slot = _sources[slot];
-    slotcont_t &slotcont = std::get<slotcont_t>( _slot );
-    icon_t const _icon = icon == 0 ? std::get<icon_t>( _slot ) : icon;
+    slotcont_t &slotcont = _slot.slotcont;
+    icon_t const _icon = icon == 0 ? _slot.cur_icon : icon;
 
     source_t const &src = slotcont[_icon];
-    if( std::get<fsourceb_t>( src )() ) {
-        _slot.first = _icon;
+    if( src.source_avail_func() ) {
+        _slot.cur_icon = _icon;
         if( reb ) {
-            _container = std::get<fsource_t>( src )();
+            _container = src.source_func();
             advuilist<Container, T>::rebuild();
         }
         _cslot = slot;
@@ -188,7 +196,7 @@ bool advuilist_sourced<Container, T>::setSource( slotidx_t slot, icon_t icon, bo
 template <class Container, typename T>
 typename advuilist_sourced<Container, T>::getsource_t advuilist_sourced<Container, T>::getSource()
 {
-    return { _cslot, std::get<icon_t>( _sources[_cslot] ) };
+    return { _cslot, _sources[_cslot].cur_icon };
 }
 
 template <class Container, typename T>
@@ -286,7 +294,7 @@ void advuilist_sourced<Container, T>::savestate( advuilist_save_state *state ) c
 {
     advuilist<Container, T>::savestate( state );
     state->slot = static_cast<uint64_t>( _cslot );
-    state->icon = std::get<icon_t>( _sources.at( _cslot ) );
+    state->icon = _sources.at( _cslot ).cur_icon;
 }
 
 template <class Container, typename T>
@@ -342,25 +350,26 @@ void advuilist_sourced<Container, T>::_printmap()
 {
     // print the name of the current source. we're doing it here instead of down in the loop
     // so that it doesn't cover the source map if it's too long
-    icon_t const ci = std::get<icon_t>( _sources[_cslot] );
+    icon_t const ci = _sources[_cslot].cur_icon;
     nc_color const bc = c_light_gray;
-    std::string const &label = std::get<flabel_t>( std::get<slotcont_t>( _sources[_cslot] )[ci] )();
+    std::string const &label = _sources[_cslot].slotcont[ci].label_printer();
     _cursor = { _firstcol, _headersize };
     fold_and_print( _w, _cursor, _size.x, bc, label );
 
     for( typename srccont_t::value_type &it : _sources ) {
         slotidx_t const slotidx = it.first;
         slot_t const &slot = it.second;
-        icon_t const icon = std::get<icon_t>( slot );
-        slotcont_t const &slotcont = std::get<slotcont_t>( slot );
+        icon_t const icon = slot.cur_icon;
+        slotcont_t const &slotcont = slot.slotcont;
         source_t const &src = slotcont.at( icon );
 
         // FIXME: maybe cache this?
         typename slotcont_t::size_type const nactive = _countactive( slotidx );
 
-        std::string const color = string_format(
-                                      "<color_%s>",
-                                      slotidx == _cslot ? "white" : std::get<fsourceb_t>( src )() ? "light_gray" : "red" );
+        std::string const color =
+            string_format( "<color_%s>", slotidx == _cslot         ? "white"
+                           : src.source_avail_func() ? "light_gray"
+                           : "red" );
         point const loc( slotidx % _map_size.x, slotidx / _map_size.x );
         // visually indicate we have more than one available source in this slot
         std::string const fmt = nactive > 1 ? "<%s%c</color>>" : "[%s%c</color>]";
@@ -376,8 +385,8 @@ typename advuilist_sourced<Container, T>::icon_t
 advuilist_sourced<Container, T>::_cycleslot( slotidx_t idx, icon_t first )
 {
     slot_t &slot = _sources[idx];
-    icon_t const icon = first == 0 ? std::get<icon_t>( slot ) : first;
-    slotcont_t &slotcont = std::get<slotcont_t>( slot );
+    icon_t const icon = first == 0 ? slot.cur_icon : first;
+    slotcont_t &slotcont = slot.slotcont;
 
     auto it = slotcont.find( icon );
     // start with the icon after the currently active one, unless we've rolled over
@@ -385,7 +394,7 @@ advuilist_sourced<Container, T>::_cycleslot( slotidx_t idx, icon_t first )
         ++it;
     }
     for( ; it != slotcont.end(); ++it ) {
-        if( std::get<fsourceb_t>( it->second )() ) {
+        if( it->second.source_avail_func() ) {
             return it->first;
         }
     }
@@ -400,8 +409,8 @@ typename advuilist_sourced<Container, T>::slotcont_t::size_type
 advuilist_sourced<Container, T>::_countactive( slotidx_t idx )
 {
     typename slotcont_t::size_type nactive = 0;
-    for( auto const &it : std::get<slotcont_t>( _sources[idx] ) ) {
-        nactive += static_cast<typename slotcont_t::size_type>( std::get<fsourceb_t>( it.second )() );
+    for( auto const &it : _sources[idx].slotcont ) {
+        nactive += static_cast<typename slotcont_t::size_type>( it.second.source_avail_func() );
     }
 
     return nactive;
