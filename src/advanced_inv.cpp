@@ -653,6 +653,11 @@ void aim_transfer( aim_transaction_ui_t *ui, aim_transaction_ui_t::select_t cons
     getsource_t const csrc = ui->curpane()->getSource();
     getsource_t dst = ui->otherpane()->getSource();
 
+    if( !dst.avail ) {
+        popup( _( "You can't put items there!" ) );
+        return;
+    }
+
     // select a valid destination if otherpane is showing the ALL source
     if( dst.slotidx == ALL_IDX ) {
         int const newdst = query_destination();

@@ -35,6 +35,7 @@ class advuilist_sourced : public advuilist<Container, T>
         struct getsource_t {
             slotidx_t slotidx = 0;
             icon_t icon = 0;
+            bool avail = false;
         };
         using flabel_t = std::function<std::string()>;
         struct source_t {
@@ -195,7 +196,8 @@ bool advuilist_sourced<Container, T>::setSource( slotidx_t slot, icon_t icon, bo
 template <class Container, typename T>
 typename advuilist_sourced<Container, T>::getsource_t advuilist_sourced<Container, T>::getSource()
 {
-    return { _cslot, _sources[_cslot].cur_icon };
+    icon_t const icon = _sources[_cslot].cur_icon;
+    return { _cslot, icon, _sources[_cslot].slotcont[icon].source_avail_func() };
 }
 
 template <class Container, typename T>
