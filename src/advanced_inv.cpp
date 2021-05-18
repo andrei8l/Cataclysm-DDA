@@ -49,7 +49,6 @@ namespace
 using namespace advuilist_helpers;
 
 constexpr std::size_t const aim_nsources = 18;
-using pane_mutex_t = std::array<bool, aim_nsources * 2>;
 constexpr point const aimlayout{ 6, 3 };
 
 constexpr char const SOURCE_DRAGGED_i = 'D';
@@ -126,14 +125,16 @@ _sourcearray::size_type offset_to_slotidx( tripoint const &off )
     return std::distance( aimsources.begin(), it );
 }
 
-pane_mutex_t::size_type idxtovehidx( pane_mutex_t::size_type idx )
-{
-    return idx + aim_nsources;
-}
-
 constexpr bool is_vehicle( aim_advuilist_sourced_t::icon_t icon )
 {
     return icon == SOURCE_DRAGGED_i or icon == SOURCE_VEHICLE_i;
+}
+
+bool is_dragged( aim_advuilist_sourced_t::getsource_t const &src )
+{
+    return is_vehicle( src.icon ) and
+           ( src.slotidx == DRAGGED_IDX or
+             src.slotidx == offset_to_slotidx( get_avatar().grab_point ) );
 }
 
 bool source_player_dragged_avail()
@@ -169,9 +170,6 @@ std::string aim_sourcelabel( _sourcearray::size_type idx, bool veh = false )
     return string_format( "%s\n%s", colorize( prefix, c_green ), colorize( label, c_light_blue ) );
 }
 // end hacky stuff
-
-void set_mutex( pane_mutex_t *mutex, aim_advuilist_sourced_t::slotidx_t slot,
-                aim_advuilist_sourced_t::icon_t icon, bool val );
 
 aim_container_t source_player_ground( tripoint const &offset )
 {
@@ -209,28 +207,30 @@ aim_container_t source_player_worn()
     return source_char_worn( &get_avatar() );
 }
 
-aim_container_t source_player_all( aim_advuilist_sourced_t *ui, pane_mutex_t *mutex )
+aim_container_t source_player_all( aim_transaction_ui_t *ui )
 {
-    // due to operations order in advuilist_sourced, we need to reset the (previous) location mutex
-    // so that it is available here when switching from a ground/vehicle source to ALL in the same
-    // pane. Only do this for regular source changes and not for pane swaps
-    if( ui->setSourceSuccess() ) {
-        using getsource_t = aim_advuilist_sourced_t::getsource_t;
-        getsource_t const src = ui->getSource();
-        set_mutex( mutex, src.slotidx, src.icon, false );
+    aim_container_t itemlist;
+    _sourcearray::size_type idx = 0;
+    using getsource_t = aim_advuilist_sourced_t::getsource_t;
+    // FIXME: fugly
+    aim_advuilist_sourced_t *otherpane = ui->left()->getSource().slotidx == ALL_IDX ? ui->right() :
+                                         ui->left();
+    getsource_t osrc = otherpane->getSource();
+    if( osrc.slotidx == DRAGGED_IDX ) {
+        osrc.slotidx = offset_to_slotidx( get_avatar().grab_point );
     }
 
-    aim_container_t itemlist;
-    pane_mutex_t::size_type idx = 0;
     for( auto const &v : aimsources ) {
         if( v.is_ground_source ) {
             tripoint const off = v.offset;
-            if( source_player_ground_avail( off ) and !mutex->at( idx ) ) {
+            if( ( idx != osrc.slotidx or is_vehicle( osrc.icon ) ) and
+                source_player_ground_avail( off ) ) {
                 aim_container_t const &stacks = source_player_ground( off );
                 itemlist.insert( itemlist.end(), std::make_move_iterator( stacks.begin() ),
                                  std::make_move_iterator( stacks.end() ) );
             }
-            if( source_player_vehicle_avail( off ) and !mutex->at( idxtovehidx( idx ) ) ) {
+            if( ( idx != osrc.slotidx or !is_vehicle( osrc.icon ) ) and
+                source_player_vehicle_avail( off ) ) {
                 aim_container_t const &stacks = source_player_vehicle( off );
                 itemlist.insert( itemlist.end(), std::make_move_iterator( stacks.begin() ),
                                  std::make_move_iterator( stacks.end() ) );
@@ -240,39 +240,6 @@ aim_container_t source_player_all( aim_advuilist_sourced_t *ui, pane_mutex_t *mu
     }
 
     return itemlist;
-}
-
-void set_mutex( pane_mutex_t *mutex, aim_advuilist_sourced_t::slotidx_t slot,
-                aim_advuilist_sourced_t::icon_t icon, bool val )
-{
-    mutex->at( icon == SOURCE_VEHICLE_i ? idxtovehidx( slot ) : slot ) = val;
-    // dragged vehicle needs more checks...
-    if( source_player_dragged_avail() ) {
-        tripoint const off = get_avatar().grab_point;
-        if( slot == DRAGGED_IDX ) {
-            pane_mutex_t::size_type const idx = offset_to_slotidx( off );
-            mutex->at( idxtovehidx( idx ) ) = val;
-        }
-        if( ( off == slotidx_to_offset( slot ) and is_vehicle( icon ) ) ) {
-            mutex->at( DRAGGED_IDX ) = val;
-        }
-    }
-}
-
-void reset_mutex( pane_mutex_t *mutex )
-{
-    mutex->fill( false );
-}
-
-void reset_mutex( aim_transaction_ui_t *ui, pane_mutex_t *mutex )
-{
-    using getsource_t = aim_advuilist_sourced_t::getsource_t;
-    getsource_t const lsrc = ui->left()->getSource();
-    getsource_t const rsrc = ui->right()->getSource();
-
-    reset_mutex( mutex );
-    set_mutex( mutex, lsrc.slotidx, lsrc.icon, true );
-    set_mutex( mutex, rsrc.slotidx, rsrc.icon, true );
 }
 
 std::string iloc_entry_src( iloc_entry const &it, int /* width */ )
@@ -509,47 +476,35 @@ int query_destination()
     return menu.ret;
 }
 
-void swap_panes_maybe( aim_transaction_ui_t *ui, std::string const &action, pane_mutex_t *mutex )
+bool swap_panes_maybe( aim_transaction_ui_t *ui )
 {
-    if( !ui->curpane()->setSourceSuccess() ) {
-        using namespace advuilist_literals;
-        using slotidx_t = aim_advuilist_sourced_t::slotidx_t;
-        using getsource_t = aim_advuilist_sourced_t::getsource_t;
-        getsource_t const csrc = ui->curpane()->getSource();
-        getsource_t const osrc = ui->otherpane()->getSource();
-        slotidx_t const req_slot =
-            action == ACTION_CYCLE_SOURCES
-            ? csrc.slotidx
-            : std::stoul( action.substr( ACTION_SOURCE_PRFX_len, action.size() ) );
-        // swap panes if the requested source is already selected in the other pane
-        // also swap panes if the current source is re-selected since people have grown accustomed
-        // to this behaviour (see discussion in #45900)
-        if( req_slot == osrc.slotidx or req_slot == csrc.slotidx ) {
-            set_mutex( mutex, csrc.slotidx, csrc.icon, false );
-            ui->otherpane()->setSource( csrc.slotidx, csrc.icon );
-            set_mutex( mutex, csrc.slotidx, csrc.icon, true );
-            set_mutex( mutex, osrc.slotidx, osrc.icon, false );
-            ui->curpane()->setSource( osrc.slotidx, osrc.icon );
-            set_mutex( mutex, osrc.slotidx, osrc.icon, true );
-            change_columns( ui->otherpane() );
-            ui->otherpane()->get_ui()->invalidate_ui();
-        }
+    using namespace advuilist_literals;
+    using getsource_t = aim_advuilist_sourced_t::getsource_t;
+    getsource_t const psrc = ui->curpane()->getSourcePrev();
+    getsource_t const csrc = ui->curpane()->getSource();
+    getsource_t const osrc = ui->otherpane()->getSource();
+    // swap panes if the requested source is already selected in the other pane
+    // also swap panes if the current source is re-selected since people have grown accustomed
+    // to this behaviour (see discussion in #45900)
+    if( csrc.avail and osrc.avail and
+        ( ( csrc.slotidx == osrc.slotidx and csrc.icon == osrc.icon ) or
+          ( psrc.slotidx == csrc.slotidx and psrc.icon == csrc.icon ) or
+          ( is_dragged( csrc ) and is_dragged( osrc ) ) ) ) {
+
+        ui->curpane()->setSource( osrc.slotidx, osrc.icon, false, false );
+        ui->otherpane()->setSource( psrc.slotidx, psrc.icon, false, false );
+
+        change_columns( ui->otherpane() );
+        return true;
     }
+
+    return false;
 }
 
-void aim_rebuild( aim_transaction_ui_t *ui, pane_mutex_t *mutex )
+void aim_rebuild( aim_transaction_ui_t *ui )
 {
-    using getsource_t = aim_advuilist_sourced_t::getsource_t;
-    getsource_t const lsrc = ui->left()->getSource();
-    getsource_t const rsrc = ui->right()->getSource();;
-    set_mutex( mutex, lsrc.slotidx, lsrc.icon, false );
     ui->left()->rebuild();
-    set_mutex( mutex, lsrc.slotidx, lsrc.icon, true );
-    // make sure our panes don't use the same source even if they end up using the same slot
-    set_mutex( mutex, rsrc.slotidx, rsrc.icon, lsrc.slotidx == rsrc.slotidx and
-               lsrc.icon == rsrc.icon );
     ui->right()->rebuild();
-    set_mutex( mutex, rsrc.slotidx, rsrc.icon, true );
 }
 
 void setup_for_aim( aim_advuilist_t *myadvuilist, aim_stats_t *stats )
@@ -599,7 +554,7 @@ void setup_for_aim( aim_advuilist_t *myadvuilist, aim_stats_t *stats )
     myadvuilist->get_ctxt()->register_action( TOGGLE_FAVORITE );
 }
 
-void add_aim_sources( aim_advuilist_sourced_t *myadvuilist, pane_mutex_t *mutex )
+void add_aim_sources( aim_advuilist_sourced_t *myadvuilist, aim_transaction_ui_t *mytrui )
 {
     using source_t = aim_advuilist_sourced_t::source_t;
     using fsource_t = aim_advuilist_sourced_t::fsource_t;
@@ -611,6 +566,9 @@ void add_aim_sources( aim_advuilist_sourced_t *myadvuilist, pane_mutex_t *mutex 
     };
     fsourceb_t _never = []() {
         return false;
+    };
+    fsourceb_t _always = []() {
+        return true;
     };
 
     // Cataclysm: Hacky Stuff Redux
@@ -630,32 +588,24 @@ void add_aim_sources( aim_advuilist_sourced_t *myadvuilist, pane_mutex_t *mutex 
                 }
                 case DRAGGED_IDX: {
                     _fs = source_player_dragged;
-                    _fsb = [ = ]() {
-                        return !mutex->at( DRAGGED_IDX ) and source_player_dragged_avail();
-                    };
+                    _fsb = source_player_dragged_avail;
                     break;
                 }
                 case INV_IDX: {
                     _fs = source_player_inv;
-                    _fsb = [ = ]() {
-                        return !mutex->at( INV_IDX );
-                    };
+                    _fsb = _always;
                     break;
                 }
                 case ALL_IDX: {
                     _fs = [ = ]() {
-                        return source_player_all( myadvuilist, mutex );
+                        return source_player_all( mytrui );
                     };
-                    _fsb = [ = ]() {
-                        return !mutex->at( ALL_IDX );
-                    };
+                    _fsb = _always;
                     break;
                 }
                 case WORN_IDX: {
                     _fs = source_player_worn;
-                    _fsb = [ = ]() {
-                        return !mutex->at( WORN_IDX );
-                    };
+                    _fsb = _always;
                     break;
                 }
                 default: {
@@ -663,14 +613,13 @@ void add_aim_sources( aim_advuilist_sourced_t *myadvuilist, pane_mutex_t *mutex 
                         return source_player_ground( src.offset );
                     };
                     _fsb = [ = ]() {
-                        return !mutex->at( idx ) and source_player_ground_avail( src.offset );
+                        return source_player_ground_avail( src.offset );
                     };
                     _fsv = [ = ]() {
                         return source_player_vehicle( src.offset );
                     };
                     _fsvb = [ = ]() {
-                        return !mutex->at( idxtovehidx( idx ) ) and
-                               source_player_vehicle_avail( src.offset );
+                        return source_player_vehicle_avail( src.offset );
                     };
                     break;
                 }
@@ -737,26 +686,22 @@ void aim_transfer( aim_transaction_ui_t *ui, aim_transaction_ui_t::select_t cons
 }
 
 // FIXME: fragment this as it has grown quite large
-void aim_ctxthandler( aim_transaction_ui_t *ui, std::string const &action, pane_mutex_t *mutex )
+void aim_ctxthandler( aim_transaction_ui_t *ui, std::string const &action )
 {
     using namespace advuilist_literals;
     using select_t = aim_transaction_ui_t::select_t;
     using slotidx_t = aim_advuilist_sourced_t::slotidx_t;
     select_t const peek = ui->curpane()->peek();
 
-    // reset pane mutex on any source change
     if( action == ACTION_CYCLE_SOURCES or
         action.substr( 0, ACTION_SOURCE_PRFX_len ) == ACTION_SOURCE_PRFX ) {
 
-        swap_panes_maybe( ui, action, mutex );
+        bool const swapped = swap_panes_maybe( ui );
 
         change_columns( ui->curpane() );
-        reset_mutex( ui, mutex );
         // rebuild other pane if it's set to the ALL source
-        if( ui->otherpane()->getSource().slotidx == ALL_IDX ) {
-            set_mutex( mutex, ALL_IDX, 0, false );
+        if( swapped or ui->otherpane()->getSource().slotidx == ALL_IDX ) {
             ui->otherpane()->rebuild();
-            set_mutex( mutex, ALL_IDX, 0, true );
             ui->otherpane()->get_ui()->invalidate_ui();
         }
 
@@ -765,10 +710,8 @@ void aim_ctxthandler( aim_transaction_ui_t *ui, std::string const &action, pane_
 
     } else if( action == ACTION_ITEMS_DEFAULT ) {
         ui->curpane()->suspend();
-        reset_mutex( mutex );
         ui->loadstate( &uistate.transfer_default, false );
-        reset_mutex( ui, mutex );
-        aim_rebuild( ui, mutex );
+        aim_rebuild( ui );
         ui->otherpane()->get_ui()->invalidate_ui();
 
     } else if( !peek.empty() ) {
@@ -818,7 +761,6 @@ void create_advanced_inv( bool resume )
     using mytrui_t = transaction_ui<aim_container_t>;
 
     static std::unique_ptr<mytrui_t> mytrui;
-    static pane_mutex_t pane_mutex{};
     static aim_stats_t lstats{ 0_kilogram, 0_liter };
     static aim_stats_t rstats{ 0_kilogram, 0_liter };
     static bool full_screen{ get_option<bool>( "AIM_WIDTH" ) };
@@ -835,11 +777,11 @@ void create_advanced_inv( bool resume )
 
         setup_for_aim( mytrui->left(), &lstats );
         setup_for_aim( mytrui->right(), &rstats );
-        add_aim_sources( mytrui->left(), &pane_mutex );
-        add_aim_sources( mytrui->right(), &pane_mutex );
+        add_aim_sources( mytrui->left(), mytrui.get() );
+        add_aim_sources( mytrui->right(), mytrui.get() );
         mytrui->on_select( aim_transfer );
         mytrui->setctxthandler( [&]( aim_transaction_ui_t *ui, std::string const & action ) {
-            aim_ctxthandler( ui, action, &pane_mutex );
+            aim_ctxthandler( ui, action );
         } );
         mytrui->loadstate( &uistate.transfer_save, false );
 
@@ -850,15 +792,13 @@ void create_advanced_inv( bool resume )
 
     }
 
-    reset_mutex( &pane_mutex );
     if( !resume and get_option<bool>( "OPEN_DEFAULT_ADV_INV" ) ) {
         mytrui->loadstate( &uistate.transfer_default, false );
     } else {
         mytrui->loadstate( &uistate.transfer_save, false );
     }
 
-    reset_mutex( &*mytrui, &pane_mutex );
-    aim_rebuild( &*mytrui, &pane_mutex );
+    aim_rebuild( &*mytrui );
 
     mytrui->show();
     mytrui->savestate( &uistate.transfer_save );

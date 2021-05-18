@@ -60,9 +60,7 @@ class advuilist_sourced : public advuilist<Container, T>
         ///@param reb if true, also runs advuilist::rebuild(). used internally by loadstate()
         bool setSource( slotidx_t slot, icon_t icon = 0, bool fallthrough = false, bool reb = true );
         getsource_t getSource();
-        /// returns true if last call to setSource was successful. meant to be called from the
-        /// external ctxt handler added by setctxthandler()
-        bool setSourceSuccess() const;
+        getsource_t getSourcePrev();
 
         select_t select();
         void rebuild();
@@ -94,12 +92,13 @@ class advuilist_sourced : public advuilist<Container, T>
         point _map_size;
         point _cursor;
         slotidx_t _cslot = 0;
-        bool _setsourcestat = false;
+        getsource_t _prevsrc;
         bool needsinit = true;
 
         catacurses::window _w;
         std::shared_ptr<ui_adaptor> _mapui;
 
+        void _quick_rebuild();
         void _registerSrc( slotidx_t c );
         void _ctxthandler( advuilist<Container, T> *ui, std::string const &action );
         void _printmap();
@@ -166,12 +165,12 @@ bool advuilist_sourced<Container, T>::setSource( slotidx_t slot, icon_t icon, bo
 
     source_t const &src = slotcont[_icon];
     if( src.source_avail_func() ) {
+        _prevsrc = { _cslot, _sources[_cslot].cur_icon, true };
         _slot.cur_icon = _icon;
-        if( reb ) {
-            _container = src.source_func();
-            advuilist<Container, T>::rebuild();
-        }
         _cslot = slot;
+        if( reb ) {
+            _quick_rebuild();
+        }
         if( _mapui ) {
             _mapui->invalidate_ui();
         }
@@ -200,9 +199,10 @@ typename advuilist_sourced<Container, T>::getsource_t advuilist_sourced<Containe
 }
 
 template <class Container, typename T>
-bool advuilist_sourced<Container, T>::setSourceSuccess() const
+typename advuilist_sourced<Container, T>::getsource_t
+advuilist_sourced<Container, T>::getSourcePrev()
 {
-    return _setsourcestat;
+    return _prevsrc;
 }
 
 template <class Container, typename T>
@@ -224,7 +224,7 @@ template <class Container, typename T>
 void advuilist_sourced<Container, T>::rebuild()
 {
     needsinit = false;
-    _setsourcestat = setSource( _cslot, 0, true, true );
+    setSource( _cslot, 0, true, true );
 }
 
 template <class Container, typename T>
@@ -301,13 +301,21 @@ template <class Container, typename T>
 void advuilist_sourced<Container, T>::loadstate( advuilist_save_state *state, bool reb )
 {
     _cslot = static_cast<slotidx_t>( state->slot );
-    _setsourcestat = setSource( _cslot, state->icon, true, false );
+    setSource( _cslot, state->icon, true, false );
 
     advuilist<Container, T>::loadstate( state, false );
 
     if( reb ) {
         rebuild();
     }
+}
+
+template <class Container, typename T>
+void advuilist_sourced<Container, T>::_quick_rebuild()
+{
+    // OH DEAR
+    _container = _sources[_cslot].slotcont[_sources[_cslot].cur_icon].source_func();
+    advuilist<Container, T>::rebuild();
 }
 
 template <class Container, typename T>
@@ -323,25 +331,28 @@ void advuilist_sourced<Container, T>::_ctxthandler( advuilist<Container, T> * /*
         std::string const &action )
 {
     using namespace advuilist_literals;
+    bool reb = false;
     // where is c++20 when you need it?
     if( action.substr( 0, ACTION_SOURCE_PRFX_len ) == ACTION_SOURCE_PRFX ) {
         slotidx_t const slotidx = std::stoul( action.substr( ACTION_SOURCE_PRFX_len, action.size() ) );
-        _setsourcestat = setSource( slotidx );
+        reb = setSource( slotidx, 0, false, false );
     } else if( action == ACTION_CYCLE_SOURCES ) {
         icon_t const next = _cycleslot( _cslot );
         if( next != 0 ) {
-            _setsourcestat = setSource( _cslot, next );
-        } else {
-            _setsourcestat = false;
+            reb = setSource( _cslot, next, false, false );
         }
     } else if( action == ACTION_NEXT_SLOT ) {
-        _setsourcestat = setSource( _cslot == _sources.size() - 1 ? 0 : _cslot + 1 );
+        reb = setSource( _cslot == _sources.size() - 1 ? 0 : _cslot + 1, 0, false, false );
     } else if( action == ACTION_PREV_SLOT ) {
-        _setsourcestat = setSource( _cslot == 0 ? _sources.size() - 1 : _cslot - 1 );
+        reb = setSource( _cslot == 0 ? _sources.size() - 1 : _cslot - 1, 0, false, false );
     }
 
     if( _fctxt ) {
         _fctxt( this, action );
+    }
+
+    if( reb ) {
+        _quick_rebuild();
     }
 }
 
