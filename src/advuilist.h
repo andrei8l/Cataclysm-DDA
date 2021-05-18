@@ -14,6 +14,7 @@
 #include <vector>      // for vector
 
 #include "advuilist_const.h"    // for ACTION_
+#include "cata_assert.h"        // for cata_assert
 #include "cata_utility.h"       // for lcmatch
 #include "color.h"              // for color_manager, hilite, c_dark_gray
 #include "cursesdef.h"          // for mvwprintw, newwin, werase, window
@@ -800,14 +801,12 @@ void advuilist<Container, T>::_group( typename groupercont_t::size_type idx )
 
         cpentries++;
 
-        if( cpentries >= lpagesize ) {
-            // avoid printing group headers on the last line of the page
-            bool const shiftone = cpentries > lpagesize;
-            typename list_t::size_type const ci =
-                std::distance( _list.begin(), it ) - ( shiftone ? 1 : 0 );
+        if( cpentries > lpagesize ) {
+            cata_assert( cpentries % lpagesize <= 2 );
+            typename list_t::size_type const ci = std::distance( _list.begin(), it );
             _pages.emplace_back( pbegin, ci );
             pbegin = ci;
-            cpentries = shiftone ? 1 : 0;
+            cpentries = 1;
         }
     }
     if( gbegin != _list.end() ) {
