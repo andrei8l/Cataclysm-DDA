@@ -272,7 +272,7 @@ aim_container_t source_vehicle( tripoint const &loc )
 bool source_vehicle_avail( tripoint const &loc )
 {
     cata::optional<vpart_reference> vp = veh_cargo_at( loc );
-    return vp.has_value();
+    return vp.has_value() && !vp->part().is_cleaner_on();
 }
 
 aim_container_t source_char_inv( Character *guy )
