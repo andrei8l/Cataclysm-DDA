@@ -29,7 +29,7 @@ class advuilist_sourced : public advuilist<Container, T>
         using fsource_t = std::function<Container()>;
         // source availability function
         using fsourceb_t = std::function<bool()>;
-        using fdraw_t = typename advuilist<Container, T>::fdraw_t;
+        using fdraw_t = std::function<void( advuilist_sourced<Container, T> * )>;
         using icon_t = char;
         using slotidx_t = std::size_t;
         struct getsource_t {
@@ -68,6 +68,7 @@ class advuilist_sourced : public advuilist<Container, T>
         void initui();
         void hide();
         void resize( point size, point origin, point reserved_rows = {-1, -1} ); // NOLINT(cata-use-named-point-constants)
+        void on_redraw( fdraw_t const &func );
         void on_resize( fdraw_t const &func );
 
         void setctxthandler( fctxt_t const &func );
@@ -87,7 +88,7 @@ class advuilist_sourced : public advuilist<Container, T>
         Container _container;
         srccont_t _sources;
         fctxt_t _fctxt;
-        fdraw_t _fresize;
+        fdraw_t _fdraw, _fresize;
         point _size, _osize;
         point _origin, _oorigin;
         point _map_size;
@@ -277,6 +278,16 @@ void advuilist_sourced<Container, T>::resize( point size, point origin, point re
     // leave room for source map window
     point const offset( 0, _headersize + _footersize + _map_size.y );
     advuilist<Container, T>::resize( _size - offset, _origin + offset, reserved_rows );
+}
+
+template <class Container, typename T>
+void advuilist_sourced<Container, T>::on_redraw( fdraw_t const &func )
+{
+    _fdraw = func;
+    advuilist<Container, T>::on_redraw(
+    [&]( advuilist<Container, T> * /* ui */ ) {
+        _fdraw( this );
+    } );
 }
 
 template <class Container, typename T>
