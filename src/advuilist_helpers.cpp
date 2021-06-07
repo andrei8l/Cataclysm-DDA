@@ -63,7 +63,7 @@ units::volume _iloc_entry_volume( iloc_entry const &it )
     return ret;
 }
 
-using stack_cache_t = std::unordered_map<itype_id, std::set<int>>;
+using stack_cache_t = std::unordered_map<itype_id, std::set<iloc_stack_t::size_type>>;
 void _get_stacks( item *elem, iloc_stack_t *stacks, stack_cache_t *cache,
                   filoc_t const &iloc_helper )
 {
@@ -264,8 +264,10 @@ aim_container_t source_vehicle( tripoint const &loc )
 {
     cata::optional<vpart_reference> vp = veh_cargo_at( loc );
 
-    return get_stacks<>( vp->vehicle().get_items( vp->part_index() ), [&]( item * it ) {
-        return item_location( vehicle_cursor( vp->vehicle(), vp->part_index() ), it );
+    int const part_index = static_cast<int>( vp->part_index() );
+
+    return get_stacks<>( vp->vehicle().get_items( part_index ), [&]( item * it ) {
+        return item_location( vehicle_cursor( vp->vehicle(), part_index ), it );
     } );
 }
 

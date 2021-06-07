@@ -9,8 +9,8 @@
 #include "advuilist_sourced.h" // for advuilist_sourced
 #include "item_location.h"     // for item_location
 #include "transaction_ui.h"    // for transaction_ui
-#include "vpart_position.h"    // for vpart_reference
 #include "units_fwd.h"         // for mass, volume
+#include "vpart_position.h"    // for vpart_reference
 
 class Character;
 class item;

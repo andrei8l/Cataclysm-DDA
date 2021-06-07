@@ -8,37 +8,37 @@
 #include <vector>    // for vector
 
 #include "activity_actor_definitions.h"  // for drop_or_stash_item_info, dro...
+#include "activity_type.h"               // for activity_id
 #include "advuilist.h"                   // for advuilist<>::groupcont_t
+#include "advuilist_const.h"             // for ACTION_CYCLE_SOURCES, ACTION...
 #include "advuilist_helpers.h"           // for aim_advuilist_sourced_t, aim...
 #include "advuilist_sourced.h"           // for advuilist_sourced
 #include "auto_pickup.h"                 // for get_auto_pickup, player_sett...
 #include "avatar.h"                      // for get_avatar, avatar
-#include "game.h"                        // for game, g, game::LEFT_OF_INFO
-#include "map.h"                         // for get_map, map
-#include "options.h"                     // for get_option
-#include "output.h"                      // for format_volume, right_print
-#include "panels.h"                      // for panel_manager
-#include "point.h"                       // for tripoint, point, tripoint_zero
-#include "activity_type.h"               // for activity_id
-#include "advuilist_const.h"             // for ACTION_CYCLE_SOURCES, ACTION...
 #include "color.h"                       // for colorize, color_manager, c_l...
 #include "enums.h"                       // for object_type, object_type::VE...
+#include "game.h"                        // for game, g, game::LEFT_OF_INFO
 #include "input.h"                       // for input_context
 #include "item.h"                        // for item
 #include "item_location.h"               // for item_location
+#include "map.h"                         // for get_map, map
 #include "optional.h"                    // for optional, nullopt
+#include "options.h"                     // for get_option
+#include "output.h"                      // for format_volume, right_print
+#include "panels.h"                      // for panel_manager
 #include "player_activity.h"             // for player_activity
+#include "point.h"                       // for tripoint, point, tripoint_zero
 #include "string_formatter.h"            // for string_format
+#include "transaction_ui.h"              // for transaction_ui, transaction_...
 #include "translations.h"                // for _
 #include "ui.h"                          // for uilist, MENU_AUTOASSIGN
 #include "ui_manager.h"                  // for ui_adaptor
-#include "vpart_position.h"              // for vpart_reference
-#include "transaction_ui.h"              // for transaction_ui, transaction_...
 #include "uistate.h"                     // for uistate, uistatedata
 #include "units.h"                       // for volume, operator""_liter, mass
 #include "units_utility.h"               // for convert_weight, volume_units...
 #include "veh_type.h"                    // for vpart_info
 #include "vehicle.h"                     // for vehicle
+#include "vpart_position.h"              // for vpart_reference
 
 
 extern activity_id const ACT_WEAR( "ACT_WEAR" );
@@ -321,7 +321,7 @@ void aim_ground_veh_stats( aim_advuilist_sourced_t *ui, aim_stats_t *stats )
 
     if( src.icon == SOURCE_VEHICLE_i or src.slotidx == DRAGGED_IDX ) {
         cata::optional<vpart_reference> const vp = veh_cargo_at( loc );
-        vol_cap = vp ? vp->vehicle().max_volume( vp->part_index() ) : 0_liter;
+        vol_cap = vp ? vp->vehicle().max_volume( static_cast<int>( vp->part_index() ) ) : 0_liter;
     } else {
         vol_cap = get_map().max_volume( loc );
     }
@@ -358,9 +358,8 @@ void aim_all_columns( aim_advuilist_t *myadvuilist )
                              false );
 }
 
-void aim_stats_printer( aim_advuilist_t *ui, aim_stats_t *stats )
+void aim_stats_printer( aim_advuilist_sourced_t *_ui, aim_stats_t *stats )
 {
-    aim_advuilist_sourced_t *_ui = reinterpret_cast<aim_advuilist_sourced_t *>( ui );
     using slotidx_t = aim_advuilist_sourced_t::slotidx_t;
     slotidx_t const src = _ui->getSource().slotidx;
 
@@ -387,11 +386,14 @@ void player_drop( aim_transaction_ui_t::select_t const &sel, tripoint const pos,
         if( sel.size() > 1 and it.ptr->stack.front()->is_favorite ) {
             continue;
         }
-        aim_advuilist_t::count_t count = it.count;
+        aim_advuilist_t::count_t const count = it.count;
         if( it.ptr->stack.front()->count_by_charges() ) {
             to_drop.emplace_back( it.ptr->stack.front(), count );
         } else {
-            for( auto v = it.ptr->stack.begin(); v != it.ptr->stack.begin() + count; ++v ) {
+            using diff_type = decltype( it.ptr->stack )::difference_type;
+            cata_assert( count <= it.ptr->stack.size() );
+            for( auto v = it.ptr->stack.begin();
+                 v != it.ptr->stack.begin() + static_cast<diff_type>( count ); ++v ) {
                 to_drop.emplace_back( *v, count );
             }
         }
@@ -412,8 +414,10 @@ void get_selection_amount( aim_transaction_ui_t::select_t const &sel,
             targets->emplace_back( *it.ptr->stack.begin() );
             quantities->emplace_back( it.count );
         } else {
+            using diff_type = decltype( it.ptr->stack )::difference_type;
+            cata_assert( it.count <= it.ptr->stack.size() );
             targets->insert( targets->end(), it.ptr->stack.begin(),
-                             it.ptr->stack.begin() + it.count );
+                             it.ptr->stack.begin() + static_cast<diff_type>( it.count ) );
             quantities->insert( quantities->end(), it.count, 0 );
         }
     }
@@ -507,7 +511,7 @@ void aim_rebuild( aim_transaction_ui_t *ui )
     ui->right()->rebuild();
 }
 
-void setup_for_aim( aim_advuilist_t *myadvuilist, aim_stats_t *stats )
+void setup_for_aim( aim_advuilist_sourced_t *myadvuilist, aim_stats_t *stats )
 {
     using sorter_t = typename aim_advuilist_t::sorter_t;
     using grouper_t = typename aim_advuilist_t::grouper_t;
@@ -544,7 +548,7 @@ void setup_for_aim( aim_advuilist_t *myadvuilist, aim_stats_t *stats )
         iloc_entry_stats( stats, first, it );
     } );
     myadvuilist->on_redraw(
-    [stats]( aim_advuilist_t *ui ) {
+    [stats]( aim_advuilist_sourced_t *ui ) {
         aim_stats_printer( ui, stats );
     } );
     myadvuilist->get_ctxt()->register_action( ACTION_EXAMINE );
@@ -690,12 +694,30 @@ void aim_transfer( aim_transaction_ui_t *ui, aim_transaction_ui_t::select_t cons
     ui->pushevent( aim_transaction_ui_t::event::QUIT );
 }
 
-// FIXME: fragment this as it has grown quite large
+void aim_examine( aim_transaction_ui_t *ui, iloc_entry &entry )
+{
+    aim_advuilist_sourced_t::slotidx_t const src = ui->curpane()->getSource().slotidx;
+    if( src == INV_IDX or src == WORN_IDX ) {
+        aim_add_return_activity();
+        ui->pushevent( aim_transaction_ui_t::event::QUIT );
+        ui->curpane()->suspend();
+        ui->curpane()->hide();
+        ui->otherpane()->hide();
+
+        std::pair<point, point> const dim = ui->otherpane()->get_size();
+        game::inventory_item_menu_position const side =
+            ui->curpane() == ui->left() ? game::LEFT_OF_INFO : game::RIGHT_OF_INFO;
+        g->inventory_item_menu(
+            entry.stack.front(), [ = ] { return dim.second.x; }, [ = ] { return dim.first.x; }, side );
+    } else {
+        iloc_entry_examine( ui->otherpane()->get_window(), entry );
+    }
+}
+
 void aim_ctxthandler( aim_transaction_ui_t *ui, std::string const &action )
 {
     using namespace advuilist_literals;
     using select_t = aim_transaction_ui_t::select_t;
-    using slotidx_t = aim_advuilist_sourced_t::slotidx_t;
     select_t const peek = ui->curpane()->peek();
 
     if( action == ACTION_CYCLE_SOURCES or
@@ -723,23 +745,7 @@ void aim_ctxthandler( aim_transaction_ui_t *ui, std::string const &action )
         iloc_entry &entry = *peek.front().ptr;
 
         if( action == ACTION_EXAMINE ) {
-            slotidx_t const src = ui->curpane()->getSource().slotidx;
-            if( src == INV_IDX or src == WORN_IDX ) {
-                aim_add_return_activity();
-                ui->pushevent( aim_transaction_ui_t::event::QUIT );
-                ui->curpane()->suspend();
-                ui->curpane()->hide();
-                ui->otherpane()->hide();
-
-                std::pair<point, point> const dim = ui->otherpane()->get_size();
-                game::inventory_item_menu_position const side =
-                    ui->curpane() == ui->left() ? game::LEFT_OF_INFO : game::RIGHT_OF_INFO;
-                g->inventory_item_menu(
-                    entry.stack.front(), [ = ] { return dim.second.x; }, [ = ] { return dim.first.x; },
-                    side );
-            } else {
-                iloc_entry_examine( ui->otherpane()->get_window(), entry );
-            }
+            aim_examine( ui, entry );
 
         } else if( action == TOGGLE_AUTO_PICKUP ) {
             item const *it = entry.stack.front().get_item();
