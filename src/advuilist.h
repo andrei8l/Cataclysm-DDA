@@ -106,6 +106,9 @@ class advuilist
         /// if set, func gets called after all internal printing calls and before wnoutrefresh(). This
         /// is meant to be used for drawing extra decorations or stats
         void on_redraw( fdraw_t const &func );
+        /// if set, func will get called when filtering is started. Use this to print instructions
+        /// in a non-standard place (outside of the popup window)
+        void on_filter( fdraw_t const &func );
         /// if set, func will get called on screen resize instead of running resize() directly. Use
         /// this if window size/pos depends on external variables such as TERMX/Y
         void on_resize( fdraw_t const &func );
@@ -166,7 +169,7 @@ class advuilist
         ffilter_t _ffilter;
         fcounter_t _fcounter;
         frebuild_t _frebuild;
-        fdraw_t _fdraw, _fresize;
+        fdraw_t _fdraw, _fresize, _fdraw_filter;
         fctxt_t _fctxt;
         std::string _filter;
         std::string _filterdsc;
@@ -336,6 +339,12 @@ template <class Container, typename T>
 void advuilist<Container, T>::on_redraw( fdraw_t const &func )
 {
     _fdraw = func;
+}
+
+template <class Container, typename T>
+void advuilist<Container, T>::on_filter( fdraw_t const &func )
+{
+    _fdraw_filter = func;
 }
 
 template <class Container, typename T>
@@ -846,14 +855,21 @@ void advuilist<Container, T>::_querysort()
 template <class Container, typename T>
 void advuilist<Container, T>::_queryfilter()
 {
+    if( _fdraw_filter ) {
+        _fdraw_filter( this );
+    }
+
     string_input_popup spopup;
     spopup.max_length( 256 ).text( _filter );
     spopup.identifier( _ctxt.get_category() );
     if( !_filterdsc.empty() ) {
         spopup.description( _filterdsc );
+    } else {
+        spopup.window( _w, point( 2, _size.y - 1 ), _size.x - 2 );
     }
 
     do {
+        _ui->invalidate_ui();
         ui_manager::redraw();
         std::string const nfilter = spopup.query_string( false );
         if( !spopup.canceled() && nfilter != _filter ) {
