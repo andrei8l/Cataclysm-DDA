@@ -227,15 +227,16 @@ bool iloc_entry_filter( iloc_entry const &it, std::string const &filter )
     return filterf( *it.stack[0] );
 }
 
-void iloc_entry_stats( aim_stats_t *stats, bool first, iloc_entry const &it )
+void iloc_entry_stats( aim_stats_t *stats, bool reset, iloc_entry const &it )
 {
-    if( first ) {
+    if( reset ) {
         stats->mass = 0_kilogram;
         stats->volume = 0_liter;
-    }
-    for( auto const &v : it.stack ) {
-        stats->mass += v->weight();
-        stats->volume += v->volume();
+    } else {
+        for( auto const &v : it.stack ) {
+            stats->mass += v->weight();
+            stats->volume += v->volume();
+        }
     }
 }
 

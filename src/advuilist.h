@@ -43,7 +43,7 @@ class advuilist
         using count_t = std::size_t;
         /// counting function. used only for partial/whole selection
         using fcounter_t = std::function<count_t( T const & )>;
-        /// on_rebuild function. params are first_item, element
+        /// on_rebuild function. params are reset, element
         using frebuild_t = std::function<void( bool, T const & )>;
         using fdraw_t = std::function<void( advuilist<Container, T> * )>;
         /// sorting function
@@ -101,7 +101,8 @@ class advuilist
         /// sets the element counting function. enables partial and whole selection
         void setcountingf( fcounter_t const &func );
         /// if set, func gets called for every element that gets added to the internal list. This is
-        /// meant to be used for collecting stats
+        /// meant to be used for collecting stats.
+        /// Passed args are either (true, null element) or (false, element)
         void on_rebuild( frebuild_t const &func );
         /// if set, func gets called after all internal printing calls and before wnoutrefresh(). This
         /// is meant to be used for drawing extra decorations or stats
@@ -439,10 +440,14 @@ void advuilist<Container, T>::rebuild( Container *list )
     _list.clear();
     Container *rlist = list == nullptr ? _olist : list;
     nidx_t idx = 0;
+    if( _frebuild ) {
+        static T const nullentry;
+        _frebuild( true, nullentry );
+    }
     for( auto it = rlist->begin(); it != rlist->end(); ++it ) {
         if( !_ffilter or _filter.empty() or _ffilter( *it, _filter ) ) {
             if( _frebuild ) {
-                _frebuild( _list.empty(), *it );
+                _frebuild( false, *it );
             }
             _list.emplace_back( entry_t{ idx++, it } );
         }

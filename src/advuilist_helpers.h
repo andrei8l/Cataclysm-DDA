@@ -67,7 +67,7 @@ std::string iloc_entry_glabel( iloc_entry const &it );
 
 bool iloc_entry_filter( iloc_entry const &it, std::string const &filter );
 
-void iloc_entry_stats( aim_stats_t *stats, bool first, advuilist_helpers::iloc_entry const &it );
+void iloc_entry_stats( aim_stats_t *stats, bool reset, advuilist_helpers::iloc_entry const &it );
 void iloc_entry_examine( catacurses::window *w, iloc_entry const &it );
 
 cata::optional<vpart_reference> veh_cargo_at( tripoint const &loc );
