@@ -204,6 +204,8 @@ class advuilist
         count_t _count( typename list_t::size_type idx );
         count_t _peekcount();
 
+        template <class add_container, typename C = typename add_container::value_type>
+        void _add_common( add_container *cont, C const &newc );
         void _initctxt();
         void _print();
         int _colwidth( col_t const &col, point const &p );
@@ -290,32 +292,29 @@ void advuilist<Container, T>::setColumns( std::vector<col_t> const &columns, boo
 }
 
 template <class Container, typename T>
-void advuilist<Container, T>::addSorter( sorter_t const &sorter )
+template <class add_container, typename C>
+void advuilist<Container, T>::_add_common( add_container *cont, C const &newc )
 {
-    auto it = std::find_if( _sorters.begin(), _sorters.end(), [&]( sorter_t const & v ) {
-        return v.name == sorter.name;
+    auto it = std::find_if( cont->begin(), cont->end(), [&]( C const & v ) {
+        return v.name == newc.name;
     } );
-    // replace sorter with same name if it already exists (including implicit sorters)
-    if( it != _sorters.end() ) {
-        *it = sorter;
+    if( it != cont->end() ) {
+        *it = newc;
     } else {
-        _sorters.emplace_back( sorter );
+        cont->emplace_back( newc );
     }
 }
 
-// FIXME: can I deduplicate this with addSorter?
+template <class Container, typename T>
+void advuilist<Container, T>::addSorter( sorter_t const &sorter )
+{
+    _add_common( &_sorters, sorter );
+}
+
 template <class Container, typename T>
 void advuilist<Container, T>::addGrouper( grouper_t const &grouper )
 {
-    auto it = std::find_if( _groupers.begin(), _groupers.end(), [&]( grouper_t const & v ) {
-        return v.name == grouper.name;
-    } );
-    // replace grouper with same name
-    if( it != _groupers.end() ) {
-        *it = grouper;
-    } else {
-        _groupers.emplace_back( grouper );
-    }
+    _add_common( &_groupers, grouper );
 }
 
 template <class Container, typename T>
