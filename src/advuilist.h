@@ -753,29 +753,20 @@ void advuilist<Container, T>::_printfooters()
 template <class Container, typename T>
 void advuilist<Container, T>::_sort( typename sortcont_t::size_type idx )
 {
-    // FIXME: deduplicate
-    if( idx > 0 ) {
-        struct cmp {
-            fsort_t const &sorter;
-            explicit cmp( sorter_t const &_s ) : sorter( _s.sorter ) {}
+    struct cmp {
+        fsort_t const &sorter;
+        explicit cmp( sorter_t const &_s ) : sorter( _s.sorter ) {}
 
-            constexpr bool operator()( entry_t const &lhs, entry_t const &rhs ) const {
+        constexpr bool operator()( entry_t const &lhs, entry_t const &rhs ) const {
+            if( sorter ) {
                 return sorter( *lhs.ptr, *rhs.ptr );
             }
-        };
-        for( group_t const &v : _groups ) {
-            std::stable_sort( v.first, v.second, cmp( _sorters[idx] ) );
+            // handle "none" sort mode too
+            return lhs.idx < rhs.idx;
         }
-    } else {
-        // "none" sort mode needs special handling unfortunately
-        struct cmp {
-            constexpr bool operator()( entry_t const &lhs, entry_t const &rhs ) const {
-                return lhs.idx < rhs.idx;
-            }
-        };
-        for( group_t const &v : _groups ) {
-            std::stable_sort( v.first, v.second, cmp() );
-        }
+    };
+    for( group_t const &v : _groups ) {
+        std::stable_sort( v.first, v.second, cmp( _sorters[idx] ) );
     }
     _csort = idx;
 }
