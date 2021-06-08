@@ -19,6 +19,7 @@ struct advuilist_save_state {
         uint64_t slot = 0, idx = 0, sort = 0, group = 0;
         char icon = 0;
         std::string filter;
+        bool initialized = false;
 
         template<typename JsonStream>
         void serialize( JsonStream &json, const std::string &prefix ) const {
@@ -37,6 +38,7 @@ struct advuilist_save_state {
             jo.read( prefix + "group", group );
             jo.read( prefix + "icon", icon );
             jo.read( prefix + "filter", filter );
+            initialized = true;
         }
 };
 
@@ -44,6 +46,7 @@ struct transaction_ui_save_state {
     public:
         advuilist_save_state left, right;
         uint64_t cpane = 0;
+        bool initialized = false;
 
         template<typename JsonStream>
         void serialize( JsonStream &json, const std::string &prefix ) const {
@@ -56,6 +59,7 @@ struct transaction_ui_save_state {
             jo.read( prefix + "cpane", cpane );
             left.deserialize( jo, prefix + "left_" );
             right.deserialize( jo, prefix + "right_" );
+            initialized = true;
         }
 };
 /*

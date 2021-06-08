@@ -725,7 +725,7 @@ void aim_ctxthandler( aim_transaction_ui_t *ui, std::string const &action )
 
     } else if( action == ACTION_ITEMS_DEFAULT ) {
         ui->curpane()->suspend();
-        ui->loadstate( &uistate.transfer_default, false );
+        ui->loadstate( uistate.transfer_default, false );
         aim_rebuild( ui );
         ui->otherpane()->get_ui()->invalidate_ui();
 
@@ -755,6 +755,13 @@ void aim_ctxthandler( aim_transaction_ui_t *ui, std::string const &action )
         }
     }
 }
+
+// sane default AIM state: left pane shows All source, right pane shows Inventory.
+// Both are sorted by name and grouped by category, with no filter
+// FIXME: magic numbers bad. maybe stringify sorter and grouper in advuilist_save_state
+transaction_ui_save_state const aim_default_state{
+    advuilist_save_state{ ALL_IDX, 0, 1, 1, 0, std::string(), true },
+    advuilist_save_state{ INV_IDX, 0, 1, 1, 0, std::string(), true }, 0 };
 
 } // namespace
 
@@ -792,7 +799,6 @@ void create_advanced_inv( bool resume )
         mytrui->setctxthandler( [&]( aim_transaction_ui_t *ui, std::string const & action ) {
             aim_ctxthandler( ui, action );
         } );
-        mytrui->loadstate( &uistate.transfer_save, false );
 
     } else if( full_screen != _fs ) {
         full_screen = _fs;
@@ -801,10 +807,15 @@ void create_advanced_inv( bool resume )
 
     }
 
-    if( !resume and get_option<bool>( "OPEN_DEFAULT_ADV_INV" ) ) {
-        mytrui->loadstate( &uistate.transfer_default, false );
+    transaction_ui_save_state const &saved_state =
+        !resume and get_option<bool>( "OPEN_DEFAULT_ADV_INV" )
+        ? uistate.transfer_default
+        : uistate.transfer_save;
+
+    if( saved_state.initialized ) {
+        mytrui->loadstate( saved_state, false );
     } else {
-        mytrui->loadstate( &uistate.transfer_save, false );
+        mytrui->loadstate( aim_default_state, false );
     }
 
     aim_rebuild( &*mytrui );

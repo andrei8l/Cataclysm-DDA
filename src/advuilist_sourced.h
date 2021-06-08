@@ -74,7 +74,7 @@ class advuilist_sourced : public advuilist<Container, T>
         void setctxthandler( fctxt_t const &func );
 
         void savestate( advuilist_save_state *state ) const;
-        void loadstate( advuilist_save_state *state, bool reb = true );
+        void loadstate( advuilist_save_state const &state, bool reb = true );
 
     private:
         using slotcont_t = std::map<icon_t, source_t>;
@@ -311,10 +311,10 @@ void advuilist_sourced<Container, T>::savestate( advuilist_save_state *state ) c
 }
 
 template <class Container, typename T>
-void advuilist_sourced<Container, T>::loadstate( advuilist_save_state *state, bool reb )
+void advuilist_sourced<Container, T>::loadstate( advuilist_save_state const &state, bool reb )
 {
-    _cslot = static_cast<slotidx_t>( state->slot );
-    setSource( _cslot, state->icon, true, false );
+    _cslot = static_cast<slotidx_t>( state.slot );
+    setSource( _cslot, state.icon, true, false );
 
     advuilist<Container, T>::loadstate( state, false );
 

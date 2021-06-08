@@ -135,7 +135,7 @@ class advuilist
         std::pair<point, point> get_size();
 
         void savestate( advuilist_save_state *state ) const;
-        void loadstate( advuilist_save_state *state, bool reb = true );
+        void loadstate( advuilist_save_state const &state, bool reb = true );
 
     private:
         /// pair of index, pointer. index is used for "none" sorting mode and is not meant to represent
@@ -559,18 +559,19 @@ void advuilist<Container, T>::savestate( advuilist_save_state *state ) const
     state->sort = static_cast<uint64_t>( _csort );
     state->group = static_cast<uint64_t>( _cgroup );
     state->filter = _filter;
+    state->initialized = true;
 }
 
 template <class Container, typename T>
-void advuilist<Container, T>::loadstate( advuilist_save_state *state, bool reb )
+void advuilist<Container, T>::loadstate( advuilist_save_state const &state, bool reb )
 {
-    _csort = static_cast<typename sortcont_t::size_type>( state->sort );
-    _cgroup = static_cast<typename groupercont_t::size_type>( state->group );
-    _filter = state->filter;
+    _csort = static_cast<typename sortcont_t::size_type>( state.sort );
+    _cgroup = static_cast<typename groupercont_t::size_type>( state.group );
+    _filter = state.filter;
     if( reb ) {
         rebuild();
     } else {
-        _setidx( state->idx );
+        _setidx( state.idx );
         _cpage = _idxtopage( _cidx );
     }
 }
