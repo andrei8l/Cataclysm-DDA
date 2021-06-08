@@ -391,14 +391,13 @@ void advuilist_sourced<Container, T>::_printmap() const
         // FIXME: maybe cache this?
         typename slotcont_t::size_type const nactive = _countactive( slotidx );
 
-        std::string const color =
-            string_format( "<color_%s>", slotidx == _cslot         ? "white"
-                           : src.source_avail_func() ? "light_gray"
-                           : "red" );
+        nc_color const color = slotidx == _cslot         ? c_white
+                               : src.source_avail_func() ? c_light_gray
+                               : c_red;
         point const loc( slotidx % _map_size.x, slotidx / _map_size.x );
         // visually indicate we have more than one available source in this slot
-        std::string const fmt = nactive > 1 ? "<%s%c</color>>" : "[%s%c</color>]";
-        std::string const msg = string_format( fmt, color, icon );
+        std::string const fmt = nactive > 1 ? "<%s>" : "[%s]";
+        std::string const msg = string_format( fmt, colorize( std::string( 1, icon ), color ) );
 
         right_print( _w, loc.y + _headersize, ( _map_size.x - loc.x ) * _iconwidth, c_dark_gray,
                      msg );

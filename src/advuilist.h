@@ -732,8 +732,9 @@ void advuilist<Container, T>::_printheaders() const
     trim_and_print( _w, { _firstcol, 1 }, _size.x, c_light_blue, msg2 );
 
     // keybinding hint
-    std::string const msg3 = string_format( _( "< [<color_yellow>%s</color>] keybindings >" ),
-                                            _ctxt.get_desc( ACTION_HELP_KEYBINDINGS ) );
+    std::string const msg3 =
+        string_format( _( "< [%s] keybindings > " ),
+                       colorize( _ctxt.get_desc( ACTION_HELP_KEYBINDINGS ), c_yellow ) );
     right_print( _w, 0, 0, c_white, msg3 );
 }
 
