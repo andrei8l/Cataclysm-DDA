@@ -120,7 +120,7 @@ class advuilist
         void rebuild( Container *list = nullptr );
         /// returns the currently hilighted element. meant to be called from the external ctxt handler
         /// added by setctxthandler()
-        select_t peek();
+        select_t peek() const;
         /// breaks internal loop in select(). meant to be called from the external ctxt handler added by
         /// setctxthandler()
         void suspend();
@@ -132,7 +132,7 @@ class advuilist
         input_context *get_ctxt();
         catacurses::window *get_window();
         std::shared_ptr<ui_adaptor> get_ui();
-        std::pair<point, point> get_size();
+        std::pair<point, point> get_size() const;
 
         void savestate( advuilist_save_state *state ) const;
         void loadstate( advuilist_save_state const &state, bool reb = true );
@@ -159,7 +159,7 @@ class advuilist
 
         point _size, _osize;
         point _origin, _oorigin;
-        point _cursor;
+        point mutable _cursor;
         typename list_t::size_type _pagesize = 0;
         list_t _list;
         colscont_t _columns;
@@ -199,28 +199,30 @@ class advuilist
         /// minimum whitespace between columns
         static constexpr int const _colspacing = 1;
 
-        select_t _peek( count_t amount );
-        select_t _peekall();
-        count_t _count( typename list_t::size_type idx );
-        count_t _peekcount();
+        select_t _peek( count_t amount ) const;
+        select_t _peekall() const;
+        count_t _count( typename list_t::size_type idx ) const;
+        count_t _peekcount() const;
 
         template <class add_container, typename C = typename add_container::value_type>
         void _add_common( add_container *cont, C const &newc );
         void _initctxt();
-        void _print();
-        int _colwidth( col_t const &col, point const &p );
-        int _printcol( col_t const &col, std::string const &str, point const &p, nc_color const &color );
-        int _printcol( col_t const &col, T const &it, point const &p, nc_color const &color, bool hilited );
-        void _printheaders();
-        void _printfooters();
+        void _print() const;
+        int _colwidth( col_t const &col, point const &p ) const;
+        int _printcol( col_t const &col, std::string const &str, point const &p,
+                       nc_color const &color ) const;
+        int _printcol( col_t const &col, T const &it, point const &p, nc_color const &color,
+                       bool hilited ) const;
+        void _printheaders() const;
+        void _printfooters() const;
         void _sort( typename sortcont_t::size_type idx );
         void _group( typename groupercont_t::size_type idx );
         void _querysort();
         void _queryfilter();
-        count_t _querypartial( count_t max );
+        count_t _querypartial();
         void _setfilter( std::string const &filter );
         bool _basicfilter( T const &it, std::string const &filter ) const;
-        typename pagecont_t::size_type _idxtopage( typename list_t::size_type idx );
+        typename pagecont_t::size_type _idxtopage( typename list_t::size_type idx ) const;
         void _incidx( typename list_t::size_type amount );
         void _decidx( typename list_t::size_type amount );
         void _setidx( typename list_t::size_type idx );
@@ -398,15 +400,13 @@ typename advuilist<Container, T>::select_t advuilist<Container, T>::select()
             return peek();
         } else if( action == ACTION_SELECT_PARTIAL ) {
             if( !_list.empty() ) {
-                count_t const count = _peekcount();
-                count_t const input = _querypartial( count );
+                count_t const input = _querypartial();
                 if( input > 0 ) {
                     return _peek( input );
                 }
             }
         } else if( action == ACTION_SELECT_WHOLE ) {
-            count_t const count = _peekcount();
-            return _peek( count );
+            return _peek( _peekcount() );
         } else if( action == ACTION_SELECT_ALL ) {
             return _peekall();
         } else if( action == ACTION_QUIT ) {
@@ -459,7 +459,7 @@ void advuilist<Container, T>::rebuild( Container *list )
 }
 
 template <class Container, typename T>
-typename advuilist<Container, T>::select_t advuilist<Container, T>::peek()
+typename advuilist<Container, T>::select_t advuilist<Container, T>::peek() const
 {
     return _peek( 1 );
 }
@@ -547,7 +547,7 @@ std::shared_ptr<ui_adaptor> advuilist<Container, T>::get_ui()
 }
 
 template <class Container, typename T>
-std::pair<point, point> advuilist<Container, T>::get_size()
+std::pair<point, point> advuilist<Container, T>::get_size() const
 {
     return { _size, _origin };
 }
@@ -577,17 +577,17 @@ void advuilist<Container, T>::loadstate( advuilist_save_state const &state, bool
 }
 
 template <class Container, typename T>
-typename advuilist<Container, T>::select_t advuilist<Container, T>::_peek( count_t amount )
+typename advuilist<Container, T>::select_t advuilist<Container, T>::_peek( count_t amount ) const
 {
     if( _list.empty() ) {
         return select_t();
     }
 
-    return select_t{ selection_t{ amount, _list[_cidx].ptr } };
+    return select_t{ selection_t{ amount, _list.at( _cidx ).ptr } };
 }
 
 template <class Container, typename T>
-typename advuilist<Container, T>::select_t advuilist<Container, T>::_peekall()
+typename advuilist<Container, T>::select_t advuilist<Container, T>::_peekall() const
 {
     select_t ret;
     for( typename list_t::size_type idx = 0; idx < _list.size(); idx++ ) {
@@ -600,19 +600,19 @@ typename advuilist<Container, T>::select_t advuilist<Container, T>::_peekall()
 
 template <class Container, typename T>
 typename advuilist<Container, T>::count_t
-advuilist<Container, T>::_count( typename list_t::size_type idx )
+advuilist<Container, T>::_count( typename list_t::size_type idx ) const
 {
     if( _list.empty() ) {
         return 0;
     }
     if( _fcounter ) {
-        return _fcounter( *_list[idx].ptr );
+        return _fcounter( *_list.at( idx ).ptr );
     }
     return 1;
 }
 
 template <class Container, typename T>
-typename advuilist<Container, T>::count_t advuilist<Container, T>::_peekcount()
+typename advuilist<Container, T>::count_t advuilist<Container, T>::_peekcount() const
 {
     return _count( _cidx );
 }
@@ -636,7 +636,7 @@ void advuilist<Container, T>::_initctxt()
 }
 
 template <class Container, typename T>
-void advuilist<Container, T>::_print()
+void advuilist<Container, T>::_print() const
 {
     _printheaders();
 
@@ -688,7 +688,7 @@ void advuilist<Container, T>::_print()
 }
 
 template <class Container, typename T>
-int advuilist<Container, T>::_colwidth( col_t const &col, point const &p )
+int advuilist<Container, T>::_colwidth( col_t const &col, point const &p ) const
 {
     int const colwidth = std::min(
                              _innerw - p.x,
@@ -699,7 +699,7 @@ int advuilist<Container, T>::_colwidth( col_t const &col, point const &p )
 
 template <class Container, typename T>
 int advuilist<Container, T>::_printcol( col_t const &col, std::string const &str, point const &p,
-                                        nc_color const &color )
+                                        nc_color const &color ) const
 {
     int const colwidth = _colwidth( col, p );
     trim_and_print( _w, p, colwidth, color, str );
@@ -708,7 +708,7 @@ int advuilist<Container, T>::_printcol( col_t const &col, std::string const &str
 
 template <class Container, typename T>
 int advuilist<Container, T>::_printcol( col_t const &col, T const &it, point const &p,
-                                        nc_color const &color, bool hilited )
+                                        nc_color const &color, bool hilited ) const
 {
     int const colwidth = _colwidth( col, p );
     std::string const &rawmsg = col.printer( it, colwidth );
@@ -718,7 +718,7 @@ int advuilist<Container, T>::_printcol( col_t const &col, T const &it, point con
 }
 
 template <class Container, typename T>
-void advuilist<Container, T>::_printheaders()
+void advuilist<Container, T>::_printheaders() const
 {
     using namespace advuilist_literals;
     // sort mode
@@ -738,7 +738,7 @@ void advuilist<Container, T>::_printheaders()
 }
 
 template <class Container, typename T>
-void advuilist<Container, T>::_printfooters()
+void advuilist<Container, T>::_printfooters() const
 {
     using namespace advuilist_literals;
     // filter
@@ -875,8 +875,9 @@ void advuilist<Container, T>::_queryfilter()
 }
 
 template <class Container, typename T>
-typename advuilist<Container, T>::count_t advuilist<Container, T>::_querypartial( count_t max )
+typename advuilist<Container, T>::count_t advuilist<Container, T>::_querypartial()
 {
+    count_t const max = _peekcount();
     string_input_popup spopup;
     spopup.title(
         string_format( _( "How many do you want to select?  [Max %d] (0 to cancel)" ), max ) );
@@ -908,10 +909,10 @@ bool advuilist<Container, T>::_basicfilter( T const &it, std::string const &filt
 
 template <class Container, typename T>
 typename advuilist<Container, T>::pagecont_t::size_type
-advuilist<Container, T>::_idxtopage( typename list_t::size_type idx )
+advuilist<Container, T>::_idxtopage( typename list_t::size_type idx ) const
 {
     typename pagecont_t::size_type cpage = 0;
-    while( _pages[cpage].second != 0 and _pages[cpage].second <= idx ) {
+    while( _pages.at( cpage ).second != 0 and _pages.at( cpage ).second <= idx ) {
         cpage++;
     }
     return cpage;

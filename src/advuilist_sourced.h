@@ -60,8 +60,8 @@ class advuilist_sourced : public advuilist<Container, T>
         ///@param fallthrough used internally by rebuild() to ensure that the internal list is valid
         ///@param reb if true, also runs advuilist::rebuild(). used internally by loadstate()
         bool setSource( slotidx_t slot, icon_t icon = 0, bool fallthrough = false, bool reb = true );
-        getsource_t getSource();
-        getsource_t getSourcePrev();
+        getsource_t getSource() const;
+        getsource_t getSourcePrev() const;
 
         select_t select();
         void rebuild();
@@ -92,7 +92,7 @@ class advuilist_sourced : public advuilist<Container, T>
         point _size, _osize;
         point _origin, _oorigin;
         point _map_size;
-        point _cursor;
+        point mutable _cursor;
         slotidx_t _cslot = 0;
         getsource_t _prevsrc;
         bool needsinit = true;
@@ -103,9 +103,9 @@ class advuilist_sourced : public advuilist<Container, T>
         void _quick_rebuild();
         void _registerSrc( slotidx_t c );
         void _ctxthandler( advuilist<Container, T> *ui, std::string const &action );
-        void _printmap();
+        void _printmap() const;
         icon_t _cycleslot( slotidx_t idx, icon_t first = 0 );
-        typename slotcont_t::size_type _countactive( slotidx_t idx );
+        typename slotcont_t::size_type _countactive( slotidx_t idx ) const;
 
         // used only for source map window
         static constexpr int const _headersize = 1;
@@ -195,15 +195,16 @@ bool advuilist_sourced<Container, T>::setSource( slotidx_t slot, icon_t icon, bo
 }
 
 template <class Container, typename T>
-typename advuilist_sourced<Container, T>::getsource_t advuilist_sourced<Container, T>::getSource()
+typename advuilist_sourced<Container, T>::getsource_t
+advuilist_sourced<Container, T>::getSource() const
 {
-    icon_t const icon = _sources[_cslot].cur_icon;
-    return { _cslot, icon, _sources[_cslot].slotcont[icon].source_avail_func() };
+    icon_t const icon = _sources.at( _cslot ).cur_icon;
+    return { _cslot, icon, _sources.at( _cslot ).slotcont.at( icon ).source_avail_func() };
 }
 
 template <class Container, typename T>
 typename advuilist_sourced<Container, T>::getsource_t
-advuilist_sourced<Container, T>::getSourcePrev()
+advuilist_sourced<Container, T>::getSourcePrev() const
 {
     return _prevsrc;
 }
@@ -370,17 +371,17 @@ void advuilist_sourced<Container, T>::_ctxthandler( advuilist<Container, T> * /*
 }
 
 template <class Container, typename T>
-void advuilist_sourced<Container, T>::_printmap()
+void advuilist_sourced<Container, T>::_printmap() const
 {
     // print the name of the current source. we're doing it here instead of down in the loop
     // so that it doesn't cover the source map if it's too long
-    icon_t const ci = _sources[_cslot].cur_icon;
+    icon_t const ci = _sources.at( _cslot ).cur_icon;
     nc_color const bc = c_light_gray;
-    std::string const &label = _sources[_cslot].slotcont[ci].label_printer();
+    std::string const &label = _sources.at( _cslot ).slotcont.at( ci ).label_printer();
     _cursor = { _firstcol, _headersize };
     fold_and_print( _w, _cursor, _size.x, bc, label );
 
-    for( typename srccont_t::value_type &it : _sources ) {
+    for( typename srccont_t::value_type const &it : _sources ) {
         slotidx_t const slotidx = it.first;
         slot_t const &slot = it.second;
         icon_t const icon = slot.cur_icon;
@@ -430,10 +431,10 @@ advuilist_sourced<Container, T>::_cycleslot( slotidx_t idx, icon_t first )
 
 template <class Container, typename T>
 typename advuilist_sourced<Container, T>::slotcont_t::size_type
-advuilist_sourced<Container, T>::_countactive( slotidx_t idx )
+advuilist_sourced<Container, T>::_countactive( slotidx_t idx ) const
 {
     typename slotcont_t::size_type nactive = 0;
-    for( auto const &it : _sources[idx].slotcont ) {
+    for( auto const &it : _sources.at( idx ).slotcont ) {
         nactive += static_cast<typename slotcont_t::size_type>( it.second.source_avail_func() );
     }
 
