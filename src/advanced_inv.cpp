@@ -374,7 +374,8 @@ void aim_stats_printer( aim_advuilist_sourced_t *_ui, aim_stats_t *stats )
 void player_take_off( aim_transaction_ui_t::select_t const &sel )
 {
     for( auto const &it : sel ) {
-        get_avatar().takeoff( *it.ptr->stack[0] );
+        cata_assert( it.ptr->stack.size() == 1 );
+        get_avatar().takeoff( it.ptr->stack[0] );
     }
 }
 

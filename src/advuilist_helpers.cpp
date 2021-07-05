@@ -88,7 +88,7 @@ void _get_stacks( item *elem, iloc_stack_t *stacks, stack_cache_t *cache,
 void _append_stacks( Character *guy, item *i, aim_container_t *ret )
 {
     aim_container_t const temp =
-        get_stacks( i->contents.all_items_top( item_pocket::pocket_type::CONTAINER ),
+        get_stacks( i->all_items_top( item_pocket::pocket_type::CONTAINER ),
     [guy]( item * it ) {
         return item_location( *guy, it );
     } );
