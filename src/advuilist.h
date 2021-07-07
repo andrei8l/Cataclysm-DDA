@@ -60,13 +60,11 @@ class advuilist
         };
         /// ctxt handler function for adding extra functionality
         using fctxt_t = std::function<void( advuilist<Container, T> *, std::string const & )>;
-        /// group sorter function
-        using fgsort_t = std::function<bool( T const &, T const & )>;
         /// group label printer
         using fglabel_t = std::function<std::string( T const & )>;
         struct grouper_t {
             std::string name;
-            fgsort_t sorter;
+            fsort_t sorter;
             fglabel_t label_printer;
         };
 
@@ -160,7 +158,7 @@ class advuilist
         point _size, _osize;
         point _origin, _oorigin;
         point mutable _cursor;
-        typename list_t::size_type _pagesize = 0;
+        typename list_t::size_type _pagesize = 1;
         list_t _list;
         colscont_t _columns;
         sortcont_t _sorters;
@@ -198,6 +196,23 @@ class advuilist
         static constexpr int const _firstcol = 1;
         /// minimum whitespace between columns
         static constexpr int const _colspacing = 1;
+
+        template <class G>
+        struct common_cmp {
+            private:
+                fsort_t const &sorter;
+
+            public:
+                explicit common_cmp( G const &_s ) : sorter( _s.sorter ) {}
+
+                constexpr bool operator()( entry_t const &lhs, entry_t const &rhs ) const {
+                    if( sorter ) {
+                        return sorter( *lhs.ptr, *rhs.ptr );
+                    }
+                    // handle "none" sort mode too
+                    return lhs.idx < rhs.idx;
+                }
+        };
 
         select_t _peek( count_t amount ) const;
         select_t _peekall() const;
@@ -244,7 +259,7 @@ advuilist<Container, T>::advuilist( Container *list, point size, point origin,
       // insert dummy sorter for "none" sort mode
       _sorters{ sorter_t{ "none", fsort_t() } },
       // insert dummy grouper for "none" grouping mode
-      _groupers{ grouper_t{ "none", fgsort_t(), fglabel_t() } },
+      _groupers{ grouper_t{ "none", fsort_t(), fglabel_t() } },
       // ugly hack that lets us use our implicit basic filter if one isn't supplied
       _ffilter{ [this]( T const &it, std::string const &filter ) {
           return this->_basicfilter( it, filter );
@@ -521,7 +536,7 @@ void advuilist<Container, T>::resize( point size, point origin, point reserved_r
     _innerw = _size.x - _firstcol * 2;
     // leave space for decorations and column headers
     typename list_t::size_type const npagesize = static_cast<typename list_t::size_type>(
-                std::max( 0, _size.y - ( _headersize + _footersize + 1 ) ) );
+                std::max( 1, _size.y - ( _headersize + _footersize + 1 ) ) );
     if( npagesize != _pagesize ) {
         _pagesize = npagesize;
         rebuild( _olist );
@@ -754,20 +769,8 @@ void advuilist<Container, T>::_printfooters() const
 template <class Container, typename T>
 void advuilist<Container, T>::_sort( typename sortcont_t::size_type idx )
 {
-    struct cmp {
-        fsort_t const &sorter;
-        explicit cmp( sorter_t const &_s ) : sorter( _s.sorter ) {}
-
-        constexpr bool operator()( entry_t const &lhs, entry_t const &rhs ) const {
-            if( sorter ) {
-                return sorter( *lhs.ptr, *rhs.ptr );
-            }
-            // handle "none" sort mode too
-            return lhs.idx < rhs.idx;
-        }
-    };
     for( group_t const &v : _groups ) {
-        std::stable_sort( v.first, v.second, cmp( _sorters[idx] ) );
+        std::stable_sort( v.first, v.second, common_cmp<sorter_t>( _sorters[idx] ) );
     }
     _csort = idx;
 }
@@ -780,39 +783,34 @@ void advuilist<Container, T>::_group( typename groupercont_t::size_type idx )
 
     // first sort the list by group id. don't bother sorting for "none" grouping mode
     if( idx != 0 ) {
-        struct cmp {
-            fgsort_t const &fgsort;
-            explicit cmp( grouper_t const &_f ) : fgsort( _f.sorter ) {}
-            constexpr bool operator()( entry_t const &lhs, entry_t const &rhs ) const {
-                return fgsort( *lhs.ptr, *rhs.ptr );
-            }
-        };
-        std::stable_sort( _list.begin(), _list.end(), cmp( _groupers[idx] ) );
+        std::stable_sort( _list.begin(), _list.end(), common_cmp<grouper_t>( _groupers[idx] ) );
     }
 
     // build group and page index pairs
-    typename list_t::iterator gbegin = _list.begin();
+    auto gbegin = _list.begin();
     typename list_t::size_type pbegin = 0;
     // reserve extra space for the first group header;
     typename list_t::size_type lpagesize = _pagesize - ( idx != 0 ? 1 : 0 );
-    typename list_t::size_type cpentries = 0;
-    fglabel_t const &fglabel = _groupers[idx].label_printer;
-    for( auto it = _list.begin(); it != _list.end(); ++it ) {
-        if( fglabel and fglabel( *it->ptr ) != fglabel( *gbegin->ptr ) ) {
-            _groups.emplace_back( gbegin, it );
-            gbegin = it;
-            // group header takes up the space of one entry
+    if( lpagesize != 0 ) {
+        typename list_t::size_type cpentries = 0;
+        fglabel_t const &fglabel = _groupers[idx].label_printer;
+        for( auto it = _list.begin(); it != _list.end(); ++it ) {
+            if( fglabel and fglabel( *it->ptr ) != fglabel( *gbegin->ptr ) ) {
+                _groups.emplace_back( gbegin, it );
+                gbegin = it;
+                // group header takes up the space of one entry
+                cpentries++;
+            }
+
             cpentries++;
-        }
 
-        cpentries++;
-
-        if( cpentries > lpagesize ) {
-            cata_assert( cpentries % lpagesize <= 2 );
-            typename list_t::size_type const ci = std::distance( _list.begin(), it );
-            _pages.emplace_back( pbegin, ci );
-            pbegin = ci;
-            cpentries = 1;
+            if( cpentries > lpagesize ) {
+                cata_assert( cpentries % lpagesize <= 2 );
+                typename list_t::size_type const ci = std::distance( _list.begin(), it );
+                _pages.emplace_back( pbegin, ci );
+                pbegin = ci;
+                cpentries = 1;
+            }
         }
     }
     if( gbegin != _list.end() ) {
@@ -899,13 +897,9 @@ void advuilist<Container, T>::_setfilter( std::string const &filter )
 template <class Container, typename T>
 bool advuilist<Container, T>::_basicfilter( T const &it, std::string const &filter ) const
 {
-    for( col_t const &col : _columns ) {
-        if( lcmatch( remove_color_tags( col.printer( it, 0 ) ), filter ) ) {
-            return true;
-        }
-    }
-
-    return false;
+    return std::any_of( _columns.begin(), _columns.end(), [&]( const col_t & col ) {
+        return lcmatch( remove_color_tags( col.printer( it, 0 ) ), filter );
+    } );
 }
 
 template <class Container, typename T>
