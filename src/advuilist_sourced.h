@@ -59,7 +59,7 @@ class advuilist_sourced : public advuilist<Container, T>
         ///@param icon
         ///@param fallthrough used internally by rebuild() to ensure that the internal list is valid
         ///@param reb if true, also runs advuilist::rebuild(). used internally by loadstate()
-        bool setSource( slotidx_t slot, icon_t icon = 0, bool fallthrough = false, bool reb = true );
+        bool setSource( slotidx_t slotidx, icon_t icon = 0, bool fallthrough = false, bool reb = true );
         getsource_t getSource() const;
         getsource_t getSourcePrev() const;
 
@@ -158,18 +158,27 @@ void advuilist_sourced<Container, T>::addSource( slotidx_t slot, source_t const 
 }
 
 template <class Container, typename T>
-bool advuilist_sourced<Container, T>::setSource( slotidx_t slot, icon_t icon, bool fallthrough,
+bool advuilist_sourced<Container, T>::setSource( slotidx_t slotidx, icon_t icon, bool fallthrough,
         bool reb )
 {
-    slot_t &_slot = _sources[slot];
-    slotcont_t &slotcont = _slot.slotcont;
-    icon_t const _icon = icon == 0 ? _slot.cur_icon : icon;
+    auto it = _sources.find( slotidx );
+    if( it == _sources.end() ) {
+        return false;
+    }
+    slot_t &slot = it->second;
+    slotcont_t const &slotcont = slot.slotcont;
+    icon_t target = icon == 0 ? slot.cur_icon : icon;
 
-    source_t const &src = slotcont[_icon];
-    if( src.source_avail_func() ) {
+    auto const target_it = slotcont.find( target );
+    if( target_it == slotcont.end() or !target_it->second.source_avail_func() ) {
+        // if requested icon is not valid, set the first available one
+        target = _cycleslot( slotidx, slotcont.begin()->first );
+    }
+
+    if( target != 0 ) {
         _prevsrc = { _cslot, _sources[_cslot].cur_icon, true };
-        _slot.cur_icon = _icon;
-        _cslot = slot;
+        slot.cur_icon = target;
+        _cslot = slotidx;
         if( reb ) {
             _quick_rebuild();
         }
@@ -177,12 +186,6 @@ bool advuilist_sourced<Container, T>::setSource( slotidx_t slot, icon_t icon, bo
             _mapui->invalidate_ui();
         }
         return true;
-    }
-
-    // if requested icon is not valid, set the first available one
-    icon_t const next = _cycleslot( slot, slotcont.begin()->first );
-    if( next != 0 ) {
-        return setSource( slot, next, fallthrough, reb );
     }
 
     if( fallthrough ) {
