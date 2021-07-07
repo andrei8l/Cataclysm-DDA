@@ -416,19 +416,27 @@ advuilist_sourced<Container, T>::_cycleslot( slotidx_t idx, icon_t first )
     slotcont_t &slotcont = slot.slotcont;
 
     auto it = slotcont.find( icon );
+    auto const start_it = it;
     // start with the icon after the currently active one, unless we've rolled over
-    if( first == 0 ) {
+    if( it != slotcont.end() and first == 0 ) {
         ++it;
     }
-    for( ; it != slotcont.end(); ++it ) {
+    bool looped = icon == slotcont.begin()->first;
+    for( ; ; ++it ) {
+         // if we haven't found a good source, roll over to the beginning and try again
+        if( it == slotcont.end() ) {
+            it = slotcont.begin();
+            looped = true;
+        }
         if( it->second.source_avail_func() ) {
             return it->first;
         }
+        if( it == start_it and looped ) {
+            return 0;
+        }
     }
 
-    // if we haven't found a good source, roll over to the beginning and try again
-    icon_t const _first = slotcont.begin()->first;
-    return first != _first ? _cycleslot( idx, _first ) : 0;
+    return 0;
 }
 
 template <class Container, typename T>
