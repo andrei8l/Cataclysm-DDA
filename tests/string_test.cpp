@@ -82,7 +82,7 @@ TEST_CASE( "trim_by_length", "[string_trimming]" )
     const std::string keybinding_hint = "Press [<color_yellow>?</color>] to change keybindings.";
     CHECK( trim_by_length( keybinding_hint, 6 ) == "Press…" );
     CHECK( trim_by_length( keybinding_hint, 7 ) == "Press …" );
-    CHECK( trim_by_length( keybinding_hint, 8 ) == "Press […" );
+    CHECK( trim_by_length( keybinding_hint, 8 ) == "Press [<color_yellow>…</color>" );
     CHECK( trim_by_length( keybinding_hint, 9 ) == "Press [<color_yellow>?</color>…" );
 
     // Test a very long string with multiple sets of color tags
@@ -97,10 +97,9 @@ TEST_CASE( "trim_by_length", "[string_trimming]" )
     // Check trimming at color tag breaks with wide characters
     const std::string tagged_MRE_name =
         "MRE <color_green>主菜</color>（鸡肉意大利香蒜沙司通心粉）（新鲜）";
-    CHECK( trim_by_length( tagged_MRE_name, 5 ) == "MRE …" );
-    CHECK( trim_by_length( tagged_MRE_name, 6 ) == "MRE …" );
+    CHECK( trim_by_length( tagged_MRE_name, 5 ) == "MRE <color_green>…</color>" );
+    CHECK( trim_by_length( tagged_MRE_name, 6 ) == "MRE <color_green>…</color>" );
     CHECK( trim_by_length( tagged_MRE_name, 7 ) == "MRE <color_green>主…</color>" );
-    CHECK( trim_by_length( tagged_MRE_name, 8 ) == "MRE <color_green>主…</color>" );
     CHECK( trim_by_length( tagged_MRE_name, 9 ) == "MRE <color_green>主菜</color>…" );
 
     // Check trimming of wide-character strings that are fully color-tagged

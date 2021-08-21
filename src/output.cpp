@@ -289,59 +289,46 @@ std::string trim_by_length( const std::string &text, int width )
         int iLength = 0;
         std::string sTempText;
         sTempText.reserve( width );
-        std::string sColor;
-        std::string sColorClose;
-        std::string sEllipsis = "\u2026";
+        std::stack<std::string> colors;
+        constexpr char const *sEllipsis = "\u2026";
 
-        const std::vector<std::string> color_segments = split_by_color( text );
-        for( size_t i = 0; i < color_segments.size() ; ++i ) {
-            std::string seg = color_segments[i];
-            if( seg.empty() ) {
-                // TODO: Check is required right now because, for a fully-color-tagged string, split_by_color
-                // returns an empty string first
-                continue;
-            }
-            sColor.clear();
-            sColorClose.clear();
-
-            if( !seg.empty() && ( seg.substr( 0, 7 ) == "<color_" || seg.substr( 0, 7 ) == "</color" ) ) {
+        const auto color_segments = split_by_color( text );
+        decltype( color_segments )::size_type i = 0;
+        for( const std::string &seg : color_segments ) {
+            if( seg.substr( 0, 7 ) == "<color_" ) {
                 sTempText = rm_prefix( seg );
-
-                if( seg.substr( 0, 7 ) == "<color_" ) {
-                    sColor = seg.substr( 0, seg.find( '>' ) + 1 );
-                    sColorClose = "</color>";
-                }
+                colors.emplace( seg.substr( 0, seg.find( '>' ) + 1 ) );
+            } else if( seg.substr( 0, 7 ) == "</color" ) {
+                sTempText = rm_prefix( seg );
+                colors.pop();
             } else {
                 sTempText = seg;
             }
 
+            if( sTempText.empty() ) {
+                continue;
+            }
+
             const int iTempLen = utf8_width( sTempText );
             iLength += iTempLen;
-            int next_char_width = 0;
-            if( i + 1 < color_segments.size() ) {
-                next_char_width = mk_wcwidth( UTF8_getch( remove_color_tags( color_segments[i + 1] ) ) );
-            }
+            bool const overflow = iLength > width || ( iLength == width && i < color_segments.size() - 1 );
 
-            int pos = 0;
-            bool trimmed = false;
-            if( iLength > width || ( iLength == width && i + 1 < color_segments.size() ) ) {
-                // This segment won't fit OR
-                // This segment just fits and there's another segment coming
+            if( overflow ) {
+                int pos = 0;
                 cursorx_to_position( sTempText.c_str(), iTempLen - ( iLength - width ) - 1, &pos, -1 );
-                sTempText = sColor.append( sTempText.substr( 0, pos ) ).append( sEllipsis ).append( sColorClose );
-                trimmed = true;
-            } else if( iLength + next_char_width >= width ) {
-                // This segments fits, but the next segment starts with a wide character
-                sTempText = sColor.append( sTempText ).append( sColorClose ).append( sEllipsis );
-                trimmed = true;
+                sTempText = sTempText.substr( 0, pos ) + sEllipsis;
             }
 
-            if( trimmed ) {
-                sText += sTempText; // Color tags were handled when the segment was trimmed
-                break;
-            } else { // This segment fits, and the next one has room to start
-                sText += sColor.append( sTempText ).append( sColorClose );
+            if( !colors.empty() ) {
+                sText += colors.top() + sTempText + "</color>";
+            } else {
+                sText += sTempText;
             }
+
+            if( overflow ) {
+                break;
+            }
+            i++;
         }
     } else {
         sText = text;
