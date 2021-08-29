@@ -36,6 +36,7 @@
 #include "regional_settings.h"
 #include "scent_map.h"
 #include "stats_tracker.h"
+#include "text_snippets.h"
 
 class overmap_connection;
 
@@ -284,6 +285,21 @@ void game::unserialize( std::istream &fin, const std::string &path )
         }
         data.read( "inactive_eocs", inactive_effect_on_condition_vector );
         Messages::deserialize( data );
+
+        std::string const lang = getSystemLanguageOrEnglish();
+        auto const it = LANG_SNIPPET_DB.find( lang );
+        if( it != LANG_SNIPPET_DB.end() ) {
+            LANG_SNIPPET = it->second;
+        } else {
+            LANG_SNIPPET.clear_snippets();
+        }
+        if( data.has_array( "lang_snippet" ) ) {
+            for( JsonObject snip : data.get_array( "lang_snippet" ) ) {
+                if( snip.get_string( "language" ) == lang ) {
+                    LANG_SNIPPET.load_snippet( snip, true );
+                }
+            }
+        }
 
     } catch( const JsonError &jsonerr ) {
         debugmsg( "Bad save json\n%s", jsonerr.c_str() );

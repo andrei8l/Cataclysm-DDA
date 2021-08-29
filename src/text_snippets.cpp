@@ -12,8 +12,10 @@
 #include "rng.h"
 
 snippet_library SNIPPET;
+snippet_library LANG_SNIPPET;
+snippet_lang_db LANG_SNIPPET_DB;
 
-void snippet_library::load_snippet( const JsonObject &jsobj )
+void snippet_library::load_snippet( const JsonObject &jsobj, bool unique )
 {
     if( hash_to_id_migration.has_value() ) {
         debugmsg( "snippet_library::load_snippet called after snippet_library::migrate_hash_to_id." );
@@ -21,13 +23,13 @@ void snippet_library::load_snippet( const JsonObject &jsobj )
     hash_to_id_migration = cata::nullopt;
     const std::string category = jsobj.get_string( "category" );
     if( jsobj.has_array( "text" ) ) {
-        add_snippets_from_json( category, jsobj.get_array( "text" ) );
+        add_snippets_from_json( category, jsobj.get_array( "text" ), unique );
     } else {
         add_snippet_from_json( category, jsobj );
     }
 }
 
-void snippet_library::add_snippets_from_json( const std::string &category, const JsonArray &jarr )
+void snippet_library::add_snippets_from_json( const std::string &category, const JsonArray &jarr, bool unique )
 {
     if( hash_to_id_migration.has_value() ) {
         debugmsg( "snippet_library::add_snippets_from_json called after snippet_library::migrate_hash_to_id." );
@@ -38,6 +40,9 @@ void snippet_library::add_snippets_from_json( const std::string &category, const
             translation text;
             if( !entry.read( text ) ) {
                 entry.throw_error( "Error reading snippet from JSON array" );
+            }
+            if( unique ) {
+                snippets_by_category[category].no_id.clear();
             }
             snippets_by_category[category].no_id.emplace_back( text );
         } else {

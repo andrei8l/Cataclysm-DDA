@@ -287,6 +287,14 @@ void DynamicDataLoader::initialize()
     add( "snippet", []( const JsonObject & jo ) {
         SNIPPET.load_snippet( jo );
     } );
+    add( "lang_snippet", []( const JsonObject & jo ) {
+        std::string const lang = jo.get_string( "language" );
+        auto it = LANG_SNIPPET_DB.find( lang );
+        if( it == LANG_SNIPPET_DB.end() ) {
+            it = LANG_SNIPPET_DB.emplace( lang, snippet_library() ).first;
+        }
+        it->second.load_snippet( jo, true );
+    } );
     add( "item_group", []( const JsonObject & jo ) {
         item_controller->load_item_group( jo );
     } );

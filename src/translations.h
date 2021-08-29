@@ -10,9 +10,9 @@
 #include <vector>
 
 #include "optional.h"
+#include "text_snippets.h"
+#include "translations_impl.h"
 #include "value_ptr.h"
-
-constexpr int INVALID_LANGUAGE_VERSION = 0;
 
 namespace detail
 {
@@ -96,7 +96,7 @@ class local_translation_cache<std::string>
             if( cached_lang_version != get_current_language_version() || cached_arg != arg ) {
                 cached_lang_version = get_current_language_version();
                 cached_arg = arg;
-                cached_translation = _translate_internal( arg );
+                cached_translation = LANG_SNIPPET.expand( _translate_internal( arg) );
             }
             return cached_translation;
 #else
@@ -112,19 +112,19 @@ class local_translation_cache<const char *>
         std::string cached_arg;
         int cached_lang_version = INVALID_LANGUAGE_VERSION;
         bool same_as_arg = false;
-        const char *cached_translation = nullptr;
+        std::string cached_translation;
     public:
         const char *operator()( const char *arg ) {
 #ifndef CATA_IN_TOOL
             if( cached_lang_version != get_current_language_version() || cached_arg != arg ) {
                 cached_lang_version = get_current_language_version();
-                cached_translation = _translate_internal( arg );
+                cached_translation = LANG_SNIPPET.expand( _translate_internal( arg ) );
                 same_as_arg = cached_translation == arg;
                 cached_arg = arg;
             }
             // mimic gettext() behavior: return `arg` if no translation is found
             // `same_as_arg` is needed to ensure that the current `arg` is returned (not a cached one)
-            return same_as_arg ? arg : cached_translation;
+            return same_as_arg ? arg : cached_translation.c_str();
 #else
             return arg;
 #endif
@@ -208,6 +208,8 @@ inline std::string _translate_internal( const std::string &msg )
 
 #endif // LOCALIZE
 
+#define ngettext( msgid, msgid_plurarl, n ) LANG_SNIPPET.expand( std::string( ::ngettext( msgid, msgid_plurarl, n ) ) ).c_str()
+
 using GenderMap = std::map<std::string, std::vector<std::string>>;
 /**
  * Translation with a gendered context
@@ -224,126 +226,6 @@ std::string gettext_gendered( const GenderMap &genders, const std::string &msg )
 
 std::string locale_dir();
 void set_language();
-
-class JsonIn;
-
-/**
- * Class for storing translation context and raw string for deferred translation
- **/
-class translation
-{
-    public:
-        struct plural_tag {};
-
-        // need to have user-defined constructor to work around clang 3.8 bug
-        // translation() = default doesn't work!
-        // see: https://stackoverflow.com/a/47368753/1349366
-        // NOLINTNEXTLINE default constructor
-        translation() {}
-        /**
-         * Same as `translation()`, but with plural form enabled.
-         **/
-        explicit translation( plural_tag );
-
-        /**
-         * Store a string, an optional plural form, and an optional context for translation
-         **/
-        static translation to_translation( const std::string &raw );
-        static translation to_translation( const std::string &ctxt, const std::string &raw );
-        static translation pl_translation( const std::string &raw, const std::string &raw_pl );
-        static translation pl_translation( const std::string &ctxt, const std::string &raw,
-                                           const std::string &raw_pl );
-        /**
-         * Store a string that needs no translation.
-         **/
-        static translation no_translation( const std::string &str );
-
-        /**
-         * Can be used to ensure a translation object has plural form enabled
-         * before loading into it from JSON. If plural form has not been enabled
-         * yet, the plural string will be set to the original singular string.
-         * `ngettext` will ignore the new plural string and correctly retrieve
-         * the original translation.
-         *     Note that a `make_singular()` function is not provided due to the
-         * potential loss of information.
-         **/
-        void make_plural();
-
-        /**
-         * Deserialize from json. Json format is:
-         *     "text"
-         * or
-         *     { "ctxt": "foo", "str": "bar", "str_pl": "baz" }
-         * "ctxt" and "str_pl" are optional. "str_pl" is only valid when an object
-         * of this class is constructed with `plural_tag` or `pl_translation()`,
-         * or converted using `make_plural()`.
-         **/
-        void deserialize( JsonIn &jsin );
-
-        /**
-         * Returns raw string if no translation is needed, otherwise returns
-         * the translated string. A number can be used to translate the plural
-         * form if the object has it.
-         **/
-        std::string translated( int num = 1 ) const;
-
-        /**
-         * Methods exposing the underlying raw strings are not implemented, and
-         * probably should not if there's no good reason to do so. Most importantly,
-         * the underlying strings should not be re-saved to JSON: doing so risk
-         * the original string being changed during development and the saved
-         * string will then not be properly translated when loaded back. If you
-         * really want to save a translation, translate it early on, store it using
-         * `no_translation`, and retrieve it using `translated()` when saving.
-         * This ensures consistent behavior before and after saving and loading.
-         **/
-        std::string untranslated() const = delete;
-
-        /**
-         * Whether the underlying string is empty, not matter what the context
-         * is or whether translation is needed.
-         **/
-        bool empty() const;
-
-        /**
-         * Compare translations by their translated strings (singular form).
-         *
-         * Be especially careful when using these to sort translations, as the
-         * translated result will change when switching the language.
-         **/
-        bool translated_lt( const translation &that ) const;
-        bool translated_eq( const translation &that ) const;
-        bool translated_ne( const translation &that ) const;
-
-        /**
-         * Compare translations by their context, raw strings (singular / plural), and no-translation flag
-         */
-        bool operator==( const translation &that ) const;
-        bool operator!=( const translation &that ) const;
-
-        /**
-         * Only used for migrating old snippet hashes into snippet ids.
-         */
-        cata::optional<int> legacy_hash() const;
-    private:
-        translation( const std::string &ctxt, const std::string &raw );
-        explicit translation( const std::string &raw );
-        translation( const std::string &raw, const std::string &raw_pl, plural_tag );
-        translation( const std::string &ctxt, const std::string &raw, const std::string &raw_pl,
-                     plural_tag );
-        struct no_translation_tag {};
-        translation( const std::string &str, no_translation_tag );
-
-        cata::value_ptr<std::string> ctxt;
-        std::string raw;
-        cata::value_ptr<std::string> raw_pl;
-        bool needs_translation = false;
-        // translation cache. For "plural" translation only latest `num` is optimistically cached
-        mutable int cached_language_version = INVALID_LANGUAGE_VERSION;
-        // `num`, which `cached_translation` corresponds to
-        mutable int cached_num = 0;
-        mutable cata::value_ptr<std::string> cached_translation;
-};
 
 /**
  * Shorthands for translation::to_translation

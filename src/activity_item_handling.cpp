@@ -323,7 +323,7 @@ void drop_on_map( Character &you, item_drop_reason reason, const std::list<item>
             case item_drop_reason::deliberate:
                 if( can_move_there ) {
                     you.add_msg_player_or_npc(
-                        ngettext( "You drop your %1$s on the %2$s.",
+                        ngettext( "<pron_2_nom> put <pron_2_gen_adj>  %1$s on the %2$s.",
                                   "You drop your %1$s on the %2$s.", dropcount ),
                         ngettext( "<npcname> drops their %1$s on the %2$s.",
                                   "<npcname> drops their %1$s on the %2$s.", dropcount ),

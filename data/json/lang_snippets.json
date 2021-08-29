@@ -1,0 +1,26 @@
+[
+  {
+    "type": "lang_snippet",
+    "language": "en", 
+    "category": "<pron_2_nom>",
+    "text" : [ "you" ]
+  },
+  {
+    "type": "lang_snippet",
+    "language": "en", 
+    "category": "<pron_2_gen_adj>",
+    "text" : [ "your" ]
+  },
+  {
+    "type": "lang_snippet",
+    "language": "en", 
+    "category": "<pron_2_gen_adv>",
+    "text" : [ "yours" ]
+  },
+  {
+    "type": "lang_snippet",
+    "language": "en", 
+    "category": "<pron_2_ref>",
+    "text" : [ "yourself" ]
+  }
+]

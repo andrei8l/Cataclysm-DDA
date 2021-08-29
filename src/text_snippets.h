@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "optional.h"
-#include "translations.h"
+#include "translations_impl.h"
 #include "type_id.h"
 
 class JsonArray;
@@ -21,13 +21,13 @@ class snippet_library
         /**
          * Load snippet from the standalone entry, used by the @ref DynamicDataLoader.
          */
-        void load_snippet( const JsonObject &jsobj );
+        void load_snippet( const JsonObject &jsobj, bool unique = false );
         /**
          * Load all snippet definitions in the json array into given category.
          * Entries in the array can be simple strings, or json objects (for the
          * later see add_snippet_from_json).
          */
-        void add_snippets_from_json( const std::string &category, const JsonArray &jarr );
+        void add_snippets_from_json( const std::string &category, const JsonArray &jarr, bool unique = false );
         /**
          * Load a single snippet text from the json object. The object should have
          * a "text" member with the text of the snippet.
@@ -114,5 +114,8 @@ class snippet_library
 };
 
 extern snippet_library SNIPPET;
+extern snippet_library LANG_SNIPPET;
+using snippet_lang_db = std::map<std::string, snippet_library>;
+extern snippet_lang_db LANG_SNIPPET_DB;
 
 #endif // CATA_SRC_TEXT_SNIPPETS_H
