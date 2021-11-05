@@ -12,7 +12,7 @@
 #include "action.h"
 #include "activity_actor_definitions.h"
 #include "activity_type.h"
-#include "advanced_inv.h"
+#include "advanced_inv_ng.h"
 #include "auto_note.h"
 #include "auto_pickup.h"
 #include "avatar.h"

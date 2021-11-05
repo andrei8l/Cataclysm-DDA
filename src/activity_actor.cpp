@@ -17,7 +17,7 @@
 #include "action.h"
 #include "activity_actor_definitions.h"
 #include "activity_handlers.h" // put_into_vehicle_or_drop and drop_on_map
-#include "advanced_inv.h"
+#include "advanced_inv_ng.h"
 #include "avatar.h"
 #include "avatar_action.h"
 #include "bodypart.h"
@@ -1972,12 +1972,6 @@ void pickup_activity_actor::do_turn( player_activity &, Character &who )
             who.set_value( "THIEF_MODE", "THIEF_ASK" );
         }
 
-        if( !keep_going ) {
-            // The user canceled the activity, so we're done
-            // AIM might have more pickup activities pending, also cancel them.
-            // TODO: Move this to advanced inventory instead of hacking it in here
-            cancel_aim_processing();
-        }
     }
 }
 

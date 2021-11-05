@@ -2,7 +2,7 @@
 #ifndef CATA_SRC_CHARACTER_ATTIRE_H
 #define CATA_SRC_CHARACTER_ATTIRE_H
 
-#include "advanced_inv_listitem.h"
+#include "bodygraph.h"
 #include "bodypart.h"
 #include "color.h"
 #include "item.h"
@@ -183,10 +183,6 @@ class outfit
         std::vector<layering_item_info> items_cover_bp( const Character &c, const bodypart_id &bp );
         item_penalties get_item_penalties( std::list<item>::const_iterator worn_item_it,
                                            const Character &c, const bodypart_id &_bp );
-        std::vector<advanced_inv_listitem> get_AIM_inventory( size_t &item_index, avatar &you,
-                const advanced_inventory_pane &pane, advanced_inv_area &square );
-        void add_AIM_items_from_area( avatar &you, advanced_inv_area &square,
-                                      advanced_inventory_pane &pane );
         void fire_options( Character &guy, std::vector<std::string> &options,
                            std::vector<std::function<void()>> &actions );
         // an extension of Character::best_pocket()
@@ -219,10 +215,6 @@ class outfit
 
         std::vector<item_location> top_items_loc( Character &guy );
         std::vector<item_location> all_items_loc( Character &guy );
-        item_location adv_inv_get_container( item_location container, const advanced_inv_area &area,
-                                             Character &guy );
-        void adv_inv_move_all_items( Character &player_character, advanced_inventory_pane &spane,
-                                     drop_locations &dropped, drop_locations &dropped_favorite );
 
         // gets item position. not translated for worn index. DEPRECATE ME!
         cata::optional<int> get_item_position( const item &it ) const;

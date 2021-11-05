@@ -16,7 +16,7 @@
 
 #include "action.h"
 #include "activity_type.h"
-#include "advanced_inv.h"
+#include "advanced_inv_ng.h"
 #include "avatar.h"
 #include "avatar_action.h"
 #include "bionics.h"
@@ -2572,7 +2572,7 @@ void activity_handlers::move_loot_do_turn( player_activity *act, Character *you 
 void activity_handlers::adv_inventory_do_turn( player_activity *, Character *you )
 {
     you->cancel_activity();
-    create_advanced_inv();
+    create_advanced_inv( true );
 }
 
 void activity_handlers::travel_do_turn( player_activity *act, Character *you )

@@ -311,17 +311,12 @@ void uistatedata::serialize( JsonOut &json ) const
     const unsigned int input_history_save_max = 25;
     json.start_object();
 
-    transfer_save.serialize( json, "transfer_save_" );
     save_inv_state( json );
+    save_adv_inv_state( json );
 
     /**** if you want to save whatever so it's whatever when the game is started next, declare here and.... ****/
     // non array stuffs
     json.member( "ags_pay_gas_selected_pump", ags_pay_gas_selected_pump );
-    json.member( "adv_inv_container_location", adv_inv_container_location );
-    json.member( "adv_inv_container_index", adv_inv_container_index );
-    json.member( "adv_inv_container_in_vehicle", adv_inv_container_in_vehicle );
-    json.member( "adv_inv_container_type", adv_inv_container_type );
-    json.member( "adv_inv_container_content_type", adv_inv_container_content_type );
     json.member( "editmap_nsa_viewmode", editmap_nsa_viewmode );
     json.member( "overmap_blinking", overmap_blinking );
     json.member( "overmap_show_overlays", overmap_show_overlays );
@@ -388,15 +383,10 @@ void uistatedata::deserialize( const JsonObject &jo )
 {
     jo.allow_omitted_members();
 
-    transfer_save.deserialize( jo, "transfer_save_" );
     load_inv_state( jo );
+    load_adv_inv_state( jo );
     // the rest
     jo.read( "ags_pay_gas_selected_pump", ags_pay_gas_selected_pump );
-    jo.read( "adv_inv_container_location", adv_inv_container_location );
-    jo.read( "adv_inv_container_index", adv_inv_container_index );
-    jo.read( "adv_inv_container_in_vehicle", adv_inv_container_in_vehicle );
-    jo.read( "adv_inv_container_type", adv_inv_container_type );
-    jo.read( "adv_inv_container_content_type", adv_inv_container_content_type );
     jo.read( "editmap_nsa_viewmode", editmap_nsa_viewmode );
     jo.read( "overmap_blinking", overmap_blinking );
     jo.read( "overmap_show_overlays", overmap_show_overlays );
