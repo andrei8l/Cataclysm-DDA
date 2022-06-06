@@ -5,7 +5,7 @@
     "name": [ "Debugged" ],
     "speed_name": "Optimized",
     "desc": [ "You have been debugged!\nEverything is working perfectly now." ],
-    "apply_message": "Diving into your source, you find a rubber duck, and talk it to death.",
+    "apply_message": "Diving into your source, you find a rubber duck, and talk it to death!",
     "show_in_info": true,
     "rating": "good",
     "max_duration": "1 h",
