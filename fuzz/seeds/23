@@ -1,0 +1,1 @@
+(237.7 * log(u_val('weather: humidity')/100) + 17.27 * 2 + 3 + 4 + 5 * 6 ^ 7 + ( 1 - 2 ) + u_val('weather: temperature')) / (17.27 - 237.7 * log(u_val('weather: humidity')/100))2
