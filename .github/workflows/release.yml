@@ -249,7 +249,14 @@ jobs:
       - name: Build CDDA (linux)
         if: runner.os == 'Linux' && matrix.mxe == 'none' && matrix.android == 'none' && matrix.artifact != 'linux-objectcreator-x64' && !matrix.wasm
         run: |
-          make -j$((`nproc`+0)) TILES=${{ matrix.tiles }} SOUND=${{ matrix.tiles }} RELEASE=1 LOCALIZE=1 LANGUAGES=all BACKTRACE=1 PCH=0 bindist
+          git clone --depth 1 https://github.com/ianlancetaylor/libbacktrace.git
+          cd libbacktrace
+          ./configure
+          make -j$((`nproc`+0))
+          mv .libs/libbacktrace.a ${{ github.workspace }}/
+          mv backtrace.h ${{ github.workspace }}/src/
+          cd ${{ github.workspace }}
+          make -j$((`nproc`+0)) TILES=${{ matrix.tiles }} SOUND=${{ matrix.tiles }} RELEASE=1 LOCALIZE=1 LANGUAGES=all BACKTRACE=1 LIBBACKTRACE=libbacktrace.a PCH=0 bindist
           mv cataclysmdda-0.I.tar.gz cdda-${{ matrix.artifact }}-${{ needs.release.outputs.timestamp }}.tar.gz
       - name: Build CDDA (WebAssembly)
         if: matrix.wasm

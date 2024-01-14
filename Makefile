@@ -873,9 +873,15 @@ endif
 
 ifeq ($(BACKTRACE),1)
   DEFINES += -DBACKTRACE
-  ifeq ($(LIBBACKTRACE),1)
-      DEFINES += -DLIBBACKTRACE
-      LDFLAGS += -lbacktrace
+  ifdef LIBBACKTRACE
+    ifeq ($(LIBBACKTRACE),1)
+        DEFINES += -DLIBBACKTRACE
+        LDFLAGS += -lbacktrace
+    else ifneq ($(LIBBACKTRACE), 0)
+        DEFINES += -DLIBBACKTRACE
+        LIBBACKTRACE = 1
+        LIBBACKTRACE_OBJ = $(LIBBACKTRACE)
+    endif
   endif
 endif
 
@@ -1011,7 +1017,7 @@ all: version prefix $(CHECKS) $(TARGET) $(L10N) $(TESTSTARGET)
 	@
 
 $(TARGET): $(OBJS)
-	+$(LD) $(W32FLAGS) -o $(TARGET) $(OBJS) $(LDFLAGS)
+	+$(LD) $(W32FLAGS) -o $(TARGET) $(OBJS) $(LIBBACKTRACE_OBJ) $(LDFLAGS)
 ifeq ($(RELEASE), 1)
   ifndef DEBUG_SYMBOLS
     ifneq ($(BACKTRACE),1)
