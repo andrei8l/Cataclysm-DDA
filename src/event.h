@@ -14,6 +14,7 @@
 #include "calendar.h"
 #include "cata_variant.h"
 #include "debug.h"
+#include "enum_conversions.h"
 
 template <typename E> struct enum_traits;
 
@@ -889,6 +890,9 @@ struct event_spec<event_type::vehicle_moves> {
 template<event_type Type, typename IndexSequence>
 struct make_event_helper;
 
+template<event_type Type, typename IndexSequence>
+struct make_dyn_helper;
+
 } // namespace event_detail
 
 class event
@@ -901,6 +905,7 @@ class event
             , time_( time )
             , data_( std::move( data ) )
         {}
+        event() : type_( event_type::num_event_types ) {}
 
         // Call this to construct an event in a type-safe manner.  It will
         // verify that the types you pass match the expected types for the
@@ -918,6 +923,13 @@ class event
             return event_detail::make_event_helper <
                    Type, std::make_index_sequence<sizeof...( Args )>
                    > ()( calendar::turn, std::forward<Args>( args )... );
+        }
+
+        // Call this to construct an event from a runtime-defined type and string arguments.
+        // All arguments will be converted to the respective types with the same index in the event spec
+        static event make_dyn( event_type type, std::vector<std::string> &args ) {
+            constexpr size_t num_types = static_cast<size_t>( event_type::num_event_types );
+            return ( _make_dyn_impl_2( type, std::make_index_sequence<num_types> {} ) )( args );
         }
 
         using fields_type = std::unordered_map<std::string, cata_variant_type>;
@@ -950,6 +962,43 @@ class event
         event_type type_;
         time_point time_;
         data_type data_;
+
+        template<size_t I>
+        static event inline _make_dyn_impl( std::vector<std::string> &s ) {
+            constexpr event_type T = static_cast<event_type>( I );
+            return event::_make_dyn<T>( s );
+        }
+
+        using make_dyn_ptr_t = event( * )( std::vector<std::string> & );
+
+        template<size_t... I>
+        constexpr static inline make_dyn_ptr_t _make_dyn_impl_2( event_type type,
+                std::index_sequence<I...>  /* IS */ ) {
+            constexpr size_t num_types = static_cast<size_t>( event_type::num_event_types );
+            constexpr std::array<make_dyn_ptr_t, num_types> _make_dyn_ptrs = {{
+                    _make_dyn_impl<I>...
+                }
+            };
+            return _make_dyn_ptrs[static_cast<size_t>( type )];
+        }
+
+        template<event_type Type>
+        static event _make_dyn( std::vector<std::string> &args ) {
+            using Spec = event_detail::event_spec<Type>;
+            static_assert( std::is_empty_v<Spec>,
+                           "spec for this event type must be defined and empty" );
+
+            if( Spec::fields.size() != args.size() ) {
+                debugmsg(
+                    R"(Wrong number of arguments passed to event type "%s".  Expected %d, got %d)",
+                    io::enum_to_string( Type ), Spec::fields.size(), args.size() );
+                return {};
+            }
+
+            return event_detail::make_dyn_helper <
+                   Type, std::make_index_sequence<Spec::fields.size()>
+                   > ()( calendar::turn, std::forward<std::vector<std::string> &>( args ) );
+        }
 };
 
 namespace event_detail
@@ -967,6 +1016,22 @@ struct make_event_helper<Type, std::index_sequence<I...>> {
         std::map<std::string, cata_variant> { {
                 Spec::fields[I].first,
                 cata_variant::make<Spec::fields[I].second>( args )
+            } ...
+        } );
+    }
+};
+
+template<event_type Type, size_t... I>
+struct make_dyn_helper<Type, std::index_sequence<I...>> {
+    using Spec = event_spec<Type>;
+
+    event operator()( time_point time, std::vector<std::string> &args ) {
+        return event(
+                   Type,
+                   time,
+        std::map<std::string, cata_variant> { {
+                Spec::fields[I].first,
+                cata_variant::from_string( Spec::fields[I].second, std::move( args[I] ) )
             } ...
         } );
     }

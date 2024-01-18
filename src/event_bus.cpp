@@ -63,6 +63,10 @@ void event_bus::unsubscribe( event_subscriber *s )
 
 void event_bus::send( const cata::event &e ) const
 {
+    if( e.type() == event_type::num_event_types ) {
+        debugmsg( "Null event sent to bus.  REJECTED!" );
+        return;
+    }
     for( event_subscriber *s : subscribers ) {
         s->notify( e );
     }
@@ -83,3 +87,4 @@ void event_bus::send_with_talker( Creature *alpha, item_location *beta,
         s->notify( e, get_talker_for( alpha ), get_talker_for( beta ) );
     }
 }
+
