@@ -1259,15 +1259,15 @@ void spell_effect::spawn_summoned_vehicle( const spell &sp, Creature &caster,
         caster.add_msg_if_player( m_bad, _( "There is already a vehicle there." ) );
         return;
     }
+    faction_id faction = caster.as_character() == nullptr ||
+                         caster.as_character()->get_faction() == nullptr ? faction_id::NULL_ID() :
+                         caster.as_character()->get_faction()->id;
     if( vehicle *veh = here.add_vehicle( sp.summon_vehicle_id(), target, -90_degrees,
-                                         100, 0, false ) ) {
+                                         faction, 100, 0, false ) ) {
         veh->unlock();
         veh->magic = true;
         if( !sp.has_flag( spell_flag::PERMANENT ) ) {
             veh->summon_time_limit = sp.duration_turns( caster );
-        }
-        if( caster.as_character() ) {
-            veh->set_owner( *caster.as_character() );
         }
     }
 }

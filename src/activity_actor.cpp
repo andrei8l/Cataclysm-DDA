@@ -7424,7 +7424,8 @@ bool vehicle_unfolding_activity_actor::unfold_vehicle( Character &p, bool check_
         return false;
     }
     map &here = get_map();
-    vehicle *veh = here.add_vehicle( vehicle_prototype_none, p.pos(), 0_degrees, 0, 0, false );
+    faction_id faction = p.get_faction() == nullptr ? faction_id::NULL_ID() : p.get_faction()->id;
+    vehicle *veh = here.add_vehicle( vehicle_prototype_none, p.pos(), 0_degrees, faction, 0, 0, false );
     if( veh == nullptr ) {
         p.add_msg_if_player( m_info, _( "There's no room to unfold the %s." ), it.tname() );
         return false;
@@ -7463,7 +7464,6 @@ bool vehicle_unfolding_activity_actor::unfold_vehicle( Character &p, bool check_
         return true;
     }
     veh->name = it.get_var( "vehicle_name" );
-    veh->set_owner( p );
     here.add_vehicle_to_cache( veh );
     if( here.veh_at( p.pos() ).part_with_feature( "BOARDABLE", true ) ) {
         here.board_vehicle( p.pos(), &p ); // if boardable unbroken part is present -> get on it

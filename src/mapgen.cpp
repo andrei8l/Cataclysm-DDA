@@ -2526,11 +2526,8 @@ class jmapgen_vehicle : public jmapgen_piece
                 return;
             }
             tripoint const dst( x.get(), y.get(), dat.m.get_abs_sub().z() );
-            vehicle *veh = dat.m.add_vehicle( chosen_id->pick(), dst, random_entry( rotation ),
-                                              fuel, status );
-            if( veh && !faction.empty() ) {
-                veh->set_owner( faction_id( faction ) );
-            }
+            dat.m.add_vehicle( chosen_id->pick(), dst, random_entry( rotation ),
+                               faction_id( faction ), fuel, status );
             if( get_map().inbounds( dat.m.getglobal( dst ) ) ) {
                 dat.m.queue_main_cleanup();
             }
@@ -6580,6 +6577,7 @@ void map::add_spawn(
 }
 
 vehicle *map::add_vehicle( const vproto_id &type, const tripoint &p, const units::angle &dir,
+                           faction_id const &faction,
                            const int veh_fuel, const int veh_status, const bool merge_wrecks )
 {
     if( !type.is_valid() ) {
@@ -6596,6 +6594,9 @@ vehicle *map::add_vehicle( const vproto_id &type, const tripoint &p, const units
     tripoint p_ms = p;
     veh->sm_pos = ms_to_sm_remain( p_ms );
     veh->pos = p_ms.xy();
+    if( !faction.is_null() ) {
+        veh->set_owner( faction );
+    }
     veh->init_state( *this, veh_fuel, veh_status );
     veh->place_spawn_items();
     veh->face.init( dir );

@@ -1418,7 +1418,7 @@ static vpart_id vpart_from_item( const itype_id &item_id )
     return vpart_frame;
 }
 
-void construct::done_vehicle( const tripoint_bub_ms &p, Character & )
+void construct::done_vehicle( const tripoint_bub_ms &p, Character &dude )
 {
     std::string name = string_input_popup()
                        .title( _( "Enter new vehicle name:" ) )
@@ -1443,8 +1443,9 @@ void construct::done_vehicle( const tripoint_bub_ms &p, Character & )
         return;
     }
 
+    faction_id faction = dude.get_faction() == nullptr ? faction_id::NULL_ID() : dude.get_faction()->id;
     // TODO: fix point types
-    vehicle *veh = here.add_vehicle( vehicle_prototype_none, p.raw(), 270_degrees, 0, 0 );
+    vehicle *veh = here.add_vehicle( vehicle_prototype_none, p.raw(), 270_degrees, faction, 0, 0 );
 
     if( !veh ) {
         debugmsg( "constructing failed: add_vehicle returned null" );

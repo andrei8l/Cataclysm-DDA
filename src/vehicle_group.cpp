@@ -155,10 +155,10 @@ void VehicleFunction_json::apply( map &m, const std::string &terrain_name ) cons
                 return;
             }
             const tripoint pos = tripoint( loc->pick_point(), m.get_abs_sub().z() );
-            m.add_vehicle( vehicle->pick(), pos, loc->pick_facing(), fuel, status );
+            m.add_vehicle( vehicle->pick(), pos, loc->pick_facing(), faction_id::NULL_ID(), fuel, status );
         } else {
             const tripoint pos = tripoint( location->pick_point(), m.get_abs_sub().z() );
-            m.add_vehicle( vehicle->pick(), pos, location->pick_facing(), fuel, status );
+            m.add_vehicle( vehicle->pick(), pos, location->pick_facing(), faction_id::NULL_ID(), fuel, status );
         }
     }
 }
@@ -242,7 +242,7 @@ static void builtin_parkinglot( map &m, const std::string_view )
             } else {
                 facing = one_in( 2 ) ? 0_degrees : 180_degrees;
             }
-            m.add_vehicle( VehicleGroup_parkinglot->pick(), pos_p, facing, -1, -1 );
+            m.add_vehicle( VehicleGroup_parkinglot->pick(), pos_p, facing, faction_id::NULL_ID(), -1, -1 );
         }
     }
 }

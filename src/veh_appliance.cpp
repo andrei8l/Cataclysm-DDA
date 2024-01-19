@@ -59,7 +59,8 @@ void place_appliance( const tripoint &p, const vpart_id &vpart, const std::optio
 
     const vpart_info &vpinfo = vpart.obj();
     map &here = get_map();
-    vehicle *veh = here.add_vehicle( vehicle_prototype_none, p, 0_degrees, 0, 0 );
+    vehicle *veh = here.add_vehicle( vehicle_prototype_none, p, 0_degrees, faction_id::NULL_ID(), 0,
+                                     0 );
 
     if( !veh ) {
         debugmsg( "error constructing vehicle" );
