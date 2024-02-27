@@ -216,7 +216,16 @@ jobs:
         if: runner.os == 'Linux' && matrix.mxe == 'none' && matrix.android == 'none' && !matrix.wasm
         run: |
           sudo apt-get update
-          sudo apt-get install libncursesw5-dev libsdl2-dev libsdl2-ttf-dev libsdl2-image-dev \
+          git clone https://github.com/libsdl-org/SDL.git
+          cd SDL
+          git checkout release-2.30.0
+          mkdir build
+          cd build
+          ../configure
+          make
+          sudo make install
+          cp ../LICENSE.txt ${{ github.workspace }}/LICENSE-SDL.txt
+          sudo apt-get install libncursesw5-dev libsdl2-ttf-dev libsdl2-image-dev \
             libsdl2-mixer-dev libpulse-dev ccache gettext parallel
       - name: Install Emscripten (WebAssembly)
         if: matrix.wasm
