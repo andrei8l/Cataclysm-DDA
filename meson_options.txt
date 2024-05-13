@@ -1,0 +1,22 @@
+option('cata_type',
+  type: 'combo',
+  choices : ['ncurses', 'tiles', 'sound'],
+  value: 'sound')
+
+option('user_dir',
+  type: 'combo',
+  choices: ['local', 'home', 'xdg'],
+  value: 'local')
+
+option('localize',
+  type: 'boolean',
+  value : true)
+
+option('backtrace',
+  type: 'boolean',
+  value : true)
+
+option('bundle_libs',
+  type: 'boolean',
+  value: true)
+

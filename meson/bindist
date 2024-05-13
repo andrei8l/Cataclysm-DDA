@@ -1,0 +1,6 @@
+[built-in options]
+prefix        = '/'
+bindir        = ''
+datadir       = ''
+libdir        = ''
+localedir     = 'lang/mo'
